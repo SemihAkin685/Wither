@@ -6,17 +6,6 @@ Wither is a native desktop IDE for Minecraft Bedrock Edition addon development, 
 
 This first milestone is the IDE shell: title bar, explorer, workspace search, editor tabs, a lightweight code editor, bottom panel with a real system terminal, status bar, command palette and themes. Workspaces are served from mock data for now. Linting, validation, packaging and Minecraft integration come later.
 
-## Layout
-
-| Path | Purpose |
-| --- | --- |
-| apps/desktop | React and TypeScript frontend (Vite) |
-| apps/desktop/src-tauri | Tauri app crate (wither-desktop), IPC commands and app state |
-| crates/core | Shared app types and settings (wither-core) |
-| crates/terminal | Pty sessions running the user's shell for the terminal panel (wither-terminal) |
-| crates/workspace | Workspace tree, in memory files, search and the sample project (wither-workspace) |
-| assets | Logos and banners |
-
 ## Requirements
 
 Rust 1.80+, Node 20+, and the Tauri system dependencies for your platform (on Linux: webkit2gtk 4.1 and GTK 3).
