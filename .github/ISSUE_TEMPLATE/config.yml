@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/SemihAkin685/Wither/security/advisories/new
+    about: Please report security issues privately, never in a public issue.
+  - name: Ask a question
+    url: https://github.com/SemihAkin685/Wither/discussions
+    about: Questions and ideas that are not bug reports go to Discussions.

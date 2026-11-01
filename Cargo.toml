@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = ["apps/desktop/src-tauri", "crates/core", "crates/terminal", "crates/workspace"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Wither contributors"]
+repository = "https://github.com/SemihAkin685/Wither"
+homepage = "https://github.com/SemihAkin685/Wither"
+rust-version = "1.80"
+
+[workspace.dependencies]
+wither-core = { path = "crates/core" }
+wither-terminal = { path = "crates/terminal" }
+wither-workspace = { path = "crates/workspace" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+portable-pty = "0.9"
+tauri = { version = "2", features = [] }
+tauri-build = { version = "2", features = [] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

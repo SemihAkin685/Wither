@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 96" width="320" height="96" fill="none">
+  <title>Wither</title>
+  <path d="M4.00 8.00L26.00 88.00L48.00 44.00L70.00 88.00L92.00 8.00M17.48 8.00L29.54 51.85L48.00 14.93L66.46 51.85L78.52 8.00" stroke="#0E0E10" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter" stroke-miterlimit="8"/>
+  <path d="M48 58L54 68L48 78L42 68Z" fill="#7C3AED"/>
+  <text x="112" y="66" fill="#0E0E10" font-family="Inter, 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif" font-size="48" font-weight="600" letter-spacing="-1">Wither</text>
+</svg>
