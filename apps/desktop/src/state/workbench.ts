@@ -38,6 +38,8 @@ export interface WorkbenchState {
   palette: PaletteMode | null;
   output: OutputLine[];
   reveal: { path: string; line: number; column: number; seq: number } | null;
+  /** Files showing the JSON UI preview next to the editor. */
+  previews: Record<string, boolean>;
 }
 
 export const SIDEBAR_WIDTH = { min: 180, max: 520, initial: 260 };
@@ -63,6 +65,7 @@ export const initialState: WorkbenchState = {
   palette: null,
   output: [],
   reveal: null,
+  previews: {},
 };
 
 export type Action =
@@ -90,6 +93,7 @@ export type Action =
   | { type: "showPanelView"; view: PanelView }
   | { type: "resizePanel"; height: number }
   | { type: "setCursor"; line: number; column: number }
+  | { type: "togglePreview"; path: string }
   | { type: "openPalette"; mode: PaletteMode }
   | { type: "closePalette" }
   | { type: "log"; line: OutputLine }
@@ -148,6 +152,7 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
         files: {},
         expanded: {},
         selectedPath: null,
+        previews: {},
       };
     case "openTab":
       return withTab(state, action.tab);
@@ -264,6 +269,8 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
     case "setCursor":
       if (state.cursor.line === action.line && state.cursor.column === action.column) return state;
       return { ...state, cursor: { line: action.line, column: action.column } };
+    case "togglePreview":
+      return { ...state, previews: { ...state.previews, [action.path]: !state.previews[action.path] } };
     case "openPalette":
       return { ...state, palette: action.mode };
     case "closePalette":

@@ -13,6 +13,8 @@ pub fn bedrock_workspace() -> Workspace {
         .file("resource_pack/pack_icon.png", "")
         .file("resource_pack/entity/wither_knight.entity.json", RP_ENTITY)
         .file("resource_pack/texts/en_US.lang", RP_LANG)
+        .file("resource_pack/ui/_ui_defs.json", RP_UI_DEFS)
+        .file("resource_pack/ui/withered_menu.json", RP_UI_MENU)
         .build()
 }
 
@@ -192,7 +194,44 @@ item.spawn_egg.entity.wither:knight.name=Spawn Wither Knight
 item.wither:withered_blade=Withered Blade
 pack.name=Withered Realms
 pack.description=Knights, blades and a lot of soul sand
+withered.menu.title=Withered Realms
+withered.menu.settings=Realm Settings
 "#;
+
+const RP_UI_DEFS: &str = r#"{
+  "ui_defs": ["ui/withered_menu.json"]
+}
+"#;
+
+const RP_UI_MENU: &str = r##"{
+  "namespace": "withered_menu",
+
+  // the vanilla action form, title swapped for our own. body text and buttons come
+  // from the server at runtime, the preview fills them from its preview data
+  "main_screen": {
+    "type": "panel",
+    "controls": [
+      {
+        "form@server_form.long_form": {
+          "$text_name": "withered.menu.title"
+        }
+      }
+    ]
+  },
+
+  // the modal settings form with inputs, toggles, sliders and dropdowns
+  "settings_screen": {
+    "type": "panel",
+    "controls": [
+      {
+        "form@server_form.custom_form": {
+          "$text_name": "withered.menu.settings"
+        }
+      }
+    ]
+  }
+}
+"##;
 
 #[cfg(test)]
 mod tests {
@@ -203,7 +242,11 @@ mod tests {
         let ws = bedrock_workspace();
         let roots: Vec<_> = ws.tree.iter().map(|n| n.name.as_str()).collect();
         assert_eq!(roots, ["behavior_pack", "resource_pack", "README.md"]);
-        for path in ["behavior_pack/manifest.json", "resource_pack/manifest.json"] {
+        for path in [
+            "behavior_pack/manifest.json",
+            "resource_pack/manifest.json",
+            "resource_pack/ui/_ui_defs.json",
+        ] {
             let text = ws.read(path).unwrap();
             serde_json::from_str::<serde_json::Value>(text).unwrap();
         }

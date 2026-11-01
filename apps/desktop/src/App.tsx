@@ -11,6 +11,7 @@ import { TitleBar } from "./components/TitleBar";
 import { api } from "./lib/api";
 import { commandForEvent, isTerminalPassthrough, type Command } from "./lib/commands";
 import { commandEntry, editEntry, type Menu } from "./lib/menus";
+import { isUiDefinitionFile } from "./lib/jsonui/catalog";
 import { flattenFiles } from "./lib/tree";
 import type { AppInfo, SearchMatch, Theme } from "./lib/types";
 import { useGit } from "./state/useGit";
@@ -82,6 +83,7 @@ export function App() {
     [updateSettings, settings.editorFontSize],
   );
 
+  const activeFile = tab?.kind === "file" ? tab.path : null;
   const commands = useMemo<Command[]>(() => {
     const activeId = state.activeTabId;
     return [
@@ -106,6 +108,7 @@ export function App() {
       { id: "view.terminal", category: "View", title: "Toggle Terminal", keys: "Ctrl+`", run: showTerminal },
       { id: "view.problems", category: "View", title: "Show Problems", keys: "Ctrl+Shift+M", run: () => dispatch({ type: "showPanelView", view: "problems" }) },
       { id: "view.output", category: "View", title: "Show Output", keys: "Ctrl+Shift+U", run: () => dispatch({ type: "showPanelView", view: "output" }) },
+      { id: "jsonui.preview", category: "JSON UI", title: "Toggle Preview", keys: "Ctrl+Shift+V", run: () => activeFile && isUiDefinitionFile(activeFile) && dispatch({ type: "togglePreview", path: activeFile }) },
       { id: "theme.toggle", category: "Theme", title: "Toggle Light/Dark", run: toggleTheme },
       { id: "theme.dark", category: "Theme", title: "Dark", run: () => setTheme("dark") },
       { id: "theme.light", category: "Theme", title: "Light", run: () => setTheme("light") },
@@ -113,7 +116,7 @@ export function App() {
       { id: "help.welcome", category: "Help", title: "Welcome", run: () => dispatch({ type: "openTab", tab: welcomeTab }) },
       { id: "window.close", category: "Window", title: "Quit Wither", keys: "Ctrl+Q", run: () => void getCurrentWindow().close() },
     ];
-  }, [actions, dispatch, state.activeTabId, showSearch, showTerminal, toggleTheme, setTheme, zoomEditor]);
+  }, [actions, dispatch, state.activeTabId, activeFile, showSearch, showTerminal, toggleTheme, setTheme, zoomEditor]);
 
   const menus = useMemo<Menu[]>(() => {
     const entry = (id: string, title?: string) => commandEntry(commands, id, title);

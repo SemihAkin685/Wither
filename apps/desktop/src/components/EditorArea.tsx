@@ -1,14 +1,18 @@
-import { ChevronRight, CircleAlert, Loader } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import { ChevronRight, CircleAlert, Columns2, Loader } from "lucide-react";
+import { isUiDefinitionFile } from "../lib/jsonui/catalog";
 import type { AppInfo, Settings, SettingsPatch } from "../lib/types";
 import type { WorkbenchActions } from "../state/useWorkbench";
 import { activeTab, isDirty, type WorkbenchState } from "../state/workbench";
 import { CodeEditor } from "./CodeEditor";
 import { FileIcon } from "./FileIcon";
+import { JsonUiPreview } from "./JsonUiPreview";
+import { ResizeHandle } from "./ResizeHandle";
 import { Logo } from "./Logo";
 import { SettingsView } from "./SettingsView";
 import { TabBar } from "./TabBar";
 import { WelcomeScreen } from "./WelcomeScreen";
-import { Keys } from "./ui";
+import { IconButton, Keys } from "./ui";
 
 interface EditorAreaProps {
   state: WorkbenchState;
@@ -56,6 +60,38 @@ function EmptyEditor() {
   );
 }
 
+const MIN_SPLIT_PANE = 240;
+
+/** Editor on the left, preview on the right, with a draggable divider between them. */
+function PreviewSplit({ editor, children }: { editor: ReactNode; children: ReactNode }) {
+  const splitRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number | null>(null);
+  const total = () => splitRef.current?.clientWidth ?? 0;
+  const resize = (next: number) =>
+    setWidth(Math.min(Math.max(MIN_SPLIT_PANE, next), Math.max(MIN_SPLIT_PANE, total() - MIN_SPLIT_PANE)));
+  return (
+    <div className="editor-split" ref={splitRef}>
+      <div className="editor-split-main">{editor}</div>
+      <ResizeHandle
+        axis="x"
+        invert
+        getSize={() => width ?? total() / 2}
+        onResize={resize}
+        onDoubleClick={() => setWidth(null)}
+      />
+      <div className="editor-split-side" style={width === null ? undefined : { flexBasis: width, flexGrow: 0 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function openBuffers(buffers: WorkbenchState["buffers"]): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(buffers).flatMap(([path, b]) => (b.status === "ready" ? [[path, b.content]] : [])),
+  );
+}
+
 export function EditorArea(props: EditorAreaProps) {
   const { state, actions, settings, appInfo, onSettingsChange, onOpenPalette, onOpenSettings } = props;
   const { dispatch } = actions;
@@ -82,6 +118,7 @@ export function EditorArea(props: EditorAreaProps) {
 
     const buffer = state.buffers[tab.path];
     const node = state.files[tab.path];
+    const jsonUi = isUiDefinitionFile(tab.path);
     let content;
     if (!buffer || buffer.status === "loading") {
       content = (
@@ -98,7 +135,7 @@ export function EditorArea(props: EditorAreaProps) {
         </div>
       );
     } else {
-      content = (
+      const editor = (
         <CodeEditor
           key={tab.path}
           path={tab.path}
@@ -111,10 +148,34 @@ export function EditorArea(props: EditorAreaProps) {
           onCursor={(line, column) => dispatch({ type: "setCursor", line, column })}
         />
       );
+      content =
+        jsonUi && state.previews[tab.path] ? (
+          <PreviewSplit editor={editor}>
+            <JsonUiPreview
+              path={tab.path}
+              content={buffer.content}
+              tree={state.workspace?.tree ?? []}
+              openBuffers={openBuffers(state.buffers)}
+            />
+          </PreviewSplit>
+        ) : (
+          editor
+        );
     }
     return (
       <div className="editor-file">
-        <Breadcrumbs path={tab.path} workspaceName={state.workspace?.name} />
+        <div className="editor-toolbar">
+          <Breadcrumbs path={tab.path} workspaceName={state.workspace?.name} />
+          {jsonUi && (
+            <IconButton
+              label="Toggle JSON UI Preview (Ctrl+Shift+V)"
+              active={!!state.previews[tab.path]}
+              onClick={() => dispatch({ type: "togglePreview", path: tab.path })}
+            >
+              <Columns2 size={14} />
+            </IconButton>
+          )}
+        </div>
         {content}
       </div>
     );

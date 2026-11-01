@@ -37,6 +37,7 @@ cargo test --workspace
 | Toggle bottom panel | Ctrl+J |
 | Toggle terminal | Ctrl+` |
 | Terminal copy / paste | Ctrl+Shift+C / Ctrl+Shift+V |
+| JSON UI preview (files under ui/) | Ctrl+Shift+V |
 | Save / Save all | Ctrl+S / Ctrl+Alt+S |
 | Close tab | Ctrl+W |
 | Next / previous tab | Ctrl+Tab / Ctrl+Shift+Tab |
