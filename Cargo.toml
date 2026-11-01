@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["apps/desktop/src-tauri", "crates/core", "crates/terminal", "crates/workspace"]
+members = ["apps/desktop/src-tauri", "crates/core", "crates/git", "crates/terminal", "crates/workspace"]
 
 [workspace.package]
 version = "0.1.0"
@@ -13,6 +13,7 @@ rust-version = "1.80"
 
 [workspace.dependencies]
 wither-core = { path = "crates/core" }
+wither-git = { path = "crates/git" }
 wither-terminal = { path = "crates/terminal" }
 wither-workspace = { path = "crates/workspace" }
 serde = { version = "1", features = ["derive"] }

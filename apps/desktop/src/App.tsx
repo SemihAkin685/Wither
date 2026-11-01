@@ -10,8 +10,10 @@ import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
 import { api } from "./lib/api";
 import { commandForEvent, isTerminalPassthrough, type Command } from "./lib/commands";
+import { commandEntry, editEntry, type Menu } from "./lib/menus";
 import { flattenFiles } from "./lib/tree";
 import type { AppInfo, SearchMatch, Theme } from "./lib/types";
+import { useGit } from "./state/useGit";
 import { useSettings } from "./state/useSettings";
 import { useWorkbench } from "./state/useWorkbench";
 import { activeTab, PANEL_HEIGHT, settingsTab, welcomeTab } from "./state/workbench";
@@ -23,6 +25,7 @@ export function App() {
   const { dispatch, log } = actions;
   const onSettingsError = useCallback((message: string) => log(message, "error"), [log]);
   const { settings, update: updateSettings } = useSettings(onSettingsError);
+  const { repo, actions: git } = useGit(state.workspace?.root ?? null, log);
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [searchFocusToken, setSearchFocusToken] = useState(0);
   const [terminalFocusToken, setTerminalFocusToken] = useState(0);
@@ -112,6 +115,86 @@ export function App() {
     ];
   }, [actions, dispatch, state.activeTabId, showSearch, showTerminal, toggleTheme, setTheme, zoomEditor]);
 
+  const menus = useMemo<Menu[]>(() => {
+    const entry = (id: string, title?: string) => commandEntry(commands, id, title);
+    return [
+      {
+        id: "file",
+        title: "File",
+        entries: [
+          entry("workspace.open", "Open Workspace..."),
+          { ...entry("workspace.close"), disabled: !state.workspace },
+          "separator",
+          entry("palette.files", "Go to File..."),
+          "separator",
+          entry("file.save"),
+          entry("file.saveAll"),
+          "separator",
+          entry("settings.open", "Settings..."),
+          "separator",
+          entry("window.close", "Exit"),
+        ],
+      },
+      {
+        id: "edit",
+        title: "Edit",
+        entries: [
+          editEntry("undo", "Undo", "Ctrl+Z"),
+          editEntry("redo", "Redo", "Ctrl+Shift+Z"),
+          "separator",
+          editEntry("cut", "Cut", "Ctrl+X"),
+          editEntry("copy", "Copy", "Ctrl+C"),
+          editEntry("paste", "Paste", "Ctrl+V"),
+          editEntry("selectAll", "Select All", "Ctrl+A"),
+          "separator",
+          entry("view.search", "Find in Workspace..."),
+        ],
+      },
+      {
+        id: "view",
+        title: "View",
+        entries: [
+          entry("palette.commands", "Command Palette..."),
+          "separator",
+          entry("view.sidebar"),
+          entry("view.explorer", "Explorer"),
+          entry("view.search", "Search"),
+          "separator",
+          entry("view.panel"),
+          entry("view.terminal", "Terminal"),
+          entry("view.problems", "Problems"),
+          entry("view.output", "Output"),
+          "separator",
+          entry("editor.zoomIn", "Zoom In"),
+          entry("editor.zoomOut", "Zoom Out"),
+          entry("editor.zoomReset", "Reset Zoom"),
+          "separator",
+          entry("theme.toggle", "Toggle Light/Dark Theme"),
+        ],
+      },
+      {
+        id: "go",
+        title: "Go",
+        entries: [entry("palette.files", "Go to File..."), "separator", entry("editor.next"), entry("editor.prev")],
+      },
+      {
+        id: "git",
+        title: "Git",
+        entries: state.workspace
+          ? repo
+            ? [{ id: "git.refresh", title: "Refresh Branches", run: git.refresh }]
+            : [{ id: "git.init", title: "Create Git Repository...", disabled: repo === undefined, run: git.init }]
+          : [{ id: "git.none", title: "Open a workspace first", disabled: true, run: () => {} }],
+      },
+      {
+        id: "window",
+        title: "Window",
+        entries: [entry("editor.close"), entry("editor.closeOthers"), entry("editor.closeAll")],
+      },
+      { id: "help", title: "Help", entries: [entry("help.welcome"), entry("palette.commands", "Find Action...")] },
+    ];
+  }, [commands, state.workspace, repo, git]);
+
   const commandsRef = useRef(commands);
   commandsRef.current = commands;
   const blocked = state.palette !== null || pendingCloseTitle !== null;
@@ -145,9 +228,10 @@ export function App() {
     <div className="workbench">
       <TitleBar
         projectName={state.workspace?.name ?? null}
-        onProjectClick={() =>
-          state.workspace ? dispatch({ type: "openPalette", mode: "files" }) : actions.openWorkspace()
-        }
+        repo={repo}
+        git={git}
+        menus={menus}
+        onOpenWorkspace={actions.openWorkspace}
         onPaletteClick={() => dispatch({ type: "openPalette", mode: "commands" })}
         onSettingsClick={() => dispatch({ type: "openTab", tab: settingsTab })}
       />

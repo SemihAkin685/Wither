@@ -4248,8 +4248,17 @@ dependencies = [
  "tauri-build",
  "thiserror 2.0.21",
  "wither-core",
+ "wither-git",
  "wither-terminal",
  "wither-workspace",
+]
+
+[[package]]
+name = "wither-git"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

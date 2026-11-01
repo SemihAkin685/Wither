@@ -44,6 +44,7 @@ npm run dev starts Vite and launches the app with hot reload. Rust changes trigg
 | apps/desktop/src | React and TypeScript frontend |
 | apps/desktop/src-tauri | Tauri app crate, IPC commands and app state |
 | crates/core | Shared app types and settings |
+| crates/git | Repository status, init and branch operations through the git CLI |
 | crates/terminal | Pty sessions for the terminal panel |
 | crates/workspace | Workspace tree, in memory files, search, sample project |
 | assets | Logos and banners, reuse these instead of adding new branding |

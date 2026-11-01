@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::State;
 use wither_core::{AppInfo, Settings, SettingsPatch};
+use wither_git::{GitError, RepoStatus};
 use wither_terminal::{SpawnOptions, TerminalError, TerminalSize};
 use wither_workspace::{sample, RecentProject, SearchMatch, Workspace, WorkspaceError};
 
@@ -22,6 +23,8 @@ pub enum CommandError {
     Workspace(#[from] WorkspaceError),
     #[error(transparent)]
     Terminal(#[from] TerminalError),
+    #[error(transparent)]
+    Git(#[from] GitError),
     #[error("application state is unavailable")]
     Poisoned,
 }
@@ -103,6 +106,51 @@ pub fn search_workspace(
     let guard = lock(&state.workspace)?;
     let workspace = guard.as_ref().ok_or(CommandError::NoWorkspace)?;
     Ok(workspace.search(&query, SEARCH_LIMIT))
+}
+
+fn workspace_root(state: &AppState) -> CommandResult<std::path::PathBuf> {
+    let guard = lock(&state.workspace)?;
+    let root = &guard.as_ref().ok_or(CommandError::NoWorkspace)?.root;
+    // hmm, the sample workspace stores its root as ~/..., so expand it before handing it to git
+    Ok(match (root.strip_prefix("~/"), home_dir()) {
+        (Some(rest), Some(home)) => home.join(rest),
+        _ => root.into(),
+    })
+}
+
+// git commands are async so a slow repo never blocks the main thread
+
+#[tauri::command]
+pub async fn git_status(state: State<'_, AppState>) -> CommandResult<Option<RepoStatus>> {
+    Ok(wither_git::status(&workspace_root(&state)?)?)
+}
+
+#[tauri::command]
+pub async fn git_init(state: State<'_, AppState>) -> CommandResult<Option<RepoStatus>> {
+    let root = workspace_root(&state)?;
+    wither_git::init(&root)?;
+    Ok(wither_git::status(&root)?)
+}
+
+#[tauri::command]
+pub async fn git_checkout(
+    state: State<'_, AppState>,
+    branch: String,
+) -> CommandResult<Option<RepoStatus>> {
+    let root = workspace_root(&state)?;
+    wither_git::checkout(&root, &branch)?;
+    Ok(wither_git::status(&root)?)
+}
+
+#[tauri::command]
+pub async fn git_create_branch(
+    state: State<'_, AppState>,
+    name: String,
+    checkout: bool,
+) -> CommandResult<Option<RepoStatus>> {
+    let root = workspace_root(&state)?;
+    wither_git::create_branch(&root, &name, checkout)?;
+    Ok(wither_git::status(&root)?)
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]

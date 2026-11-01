@@ -62,3 +62,12 @@ export interface TerminalSession {
   id: number;
   shell: string;
 }
+
+export interface GitRepo {
+  root: string;
+  head: string;
+  detached: boolean;
+  unborn: boolean;
+  localBranches: string[];
+  remoteBranches: string[];
+}
