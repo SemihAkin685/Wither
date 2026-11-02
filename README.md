@@ -37,6 +37,7 @@ cargo test --workspace
 | Terminal copy / paste | Ctrl+Shift+C / Ctrl+Shift+V |
 | JSON UI preview (files under ui/) | Ctrl+Shift+V |
 | Save / Save all | Ctrl+S / Ctrl+Alt+S |
+| Test in game (repeats the last target) | Ctrl+F5 |
 | Close tab | Ctrl+W |
 | Next / previous tab | Ctrl+Tab / Ctrl+Shift+Tab |
 | Editor font size | Ctrl+= / Ctrl+- / Ctrl+0 |

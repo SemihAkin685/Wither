@@ -52,6 +52,7 @@ Crates:
 * wither-core: AppInfo and Settings (with SettingsPatch for partial updates, persisted to settings.json in the app config dir).
 * wither-git: status, init, checkout and branch creation by shelling out to the git CLI.
 * wither-terminal: pty sessions via portable-pty; output and exit stream to the frontend over Tauri Channels.
+* wither-packs: pack discovery from manifest.json, .mcaddon / .mcpack export and import (zip, rejects entries escaping the target), Minecraft install detection (mcpelauncher on Linux, GDK and UWP on Windows), world listing, installing into development_*_packs with a .wither-install marker so only Wither's own copies get replaced, attaching packs to a world and launching the game.
 
 bedrock_addon is pinned to a specific commit of bedrock-rs in the root Cargo.toml, and smallvec must stay at 2.0.0-beta.1 in Cargo.lock because newer betas break bedrock_addon_support. Don't bump either casually.
 
