@@ -1140,6 +1140,84 @@ kbd {
   color: transparent;
 }
 
+.suggest {
+  position: absolute;
+  z-index: 5;
+  min-width: 300px;
+  max-width: 560px;
+  padding: 4px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+  font-size: 0.92em;
+  cursor: default;
+}
+.suggest-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.suggest-item.is-selected {
+  background: var(--bg-selected-strong);
+  color: var(--text);
+}
+.suggest-icon {
+  flex: none;
+  color: var(--accent);
+}
+.suggest-item.is-property .suggest-icon {
+  color: var(--syntax-key);
+}
+.suggest-item.is-value .suggest-icon,
+.suggest-item.is-module .suggest-icon {
+  color: var(--syntax-string);
+}
+.suggest-item.is-keyword .suggest-icon {
+  color: var(--syntax-number);
+}
+.suggest-item.is-word .suggest-icon {
+  color: var(--text-faint);
+}
+.suggest-item.is-command .suggest-icon,
+.suggest-item.is-method .suggest-icon {
+  color: var(--syntax-function);
+}
+.suggest-item.is-class .suggest-icon,
+.suggest-item.is-enum .suggest-icon,
+.suggest-item.is-constant .suggest-icon {
+  color: var(--syntax-number);
+}
+.suggest-item.is-variable .suggest-icon {
+  color: var(--syntax-key);
+}
+.suggest-label {
+  flex: none;
+}
+.suggest-label mark {
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+.suggest-item.is-deprecated .suggest-label {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.suggest-detail {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  color: var(--text-faint);
+}
+
 .tok-key {
   color: var(--syntax-key);
 }

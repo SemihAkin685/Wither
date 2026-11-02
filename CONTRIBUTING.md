@@ -43,6 +43,7 @@ npm run dev starts Vite and launches the app with hot reload. Rust changes trigg
 | --- | --- |
 | apps/desktop/src | React and TypeScript frontend |
 | apps/desktop/src-tauri | Tauri app crate, IPC commands and app state |
+| crates/completion | Completion catalog from bedrock_addon: components, manifest values, script modules and their API, vanilla ids and commands |
 | crates/core | Shared app types and settings |
 | crates/diagnostics | Pack, JSON and script problems through bedrock_addon |
 | crates/git | Repository status, init and branch operations through the git CLI |

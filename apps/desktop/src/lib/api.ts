@@ -1,6 +1,7 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type {
   AppInfo,
+  CompletionCatalog,
   GitRepo,
   Problem,
   TerminalSession,
@@ -28,6 +29,7 @@ export const api = {
     invoke<GitRepo | null>("git_create_branch", { name, checkout }),
   searchWorkspace: (query: string) => invoke<SearchMatch[]>("search_workspace", { query }),
   checkWorkspace: (unsaved: Record<string, string>) => invoke<Problem[]>("check_workspace", { unsaved }),
+  completionCatalog: () => invoke<CompletionCatalog>("completion_catalog"),
   terminalSpawn: (size: TerminalSize, onOutput: Channel<ArrayBuffer>, onExit: Channel<number | null>) =>
     invoke<TerminalSession>("terminal_spawn", { size, onOutput, onExit }),
   terminalWrite: (id: number, data: string) => invoke<void>("terminal_write", { id, data }),

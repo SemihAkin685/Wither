@@ -1,0 +1,15 @@
+[package]
+name = "wither-completion"
+description = "What the editor can suggest in Bedrock packs and scripts, read from bedrock_addon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bedrock_addon.workspace = true
+serde.workspace = true
+serde_json.workspace = true

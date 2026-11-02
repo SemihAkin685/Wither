@@ -135,6 +135,13 @@ pub async fn check_workspace(
     ))
 }
 
+/// Component names, manifest vocabulary and vanilla ids for JSON completion. The editor asks
+/// once and filters on its side.
+#[tauri::command]
+pub fn completion_catalog() -> wither_completion::Catalog {
+    wither_completion::catalog()
+}
+
 fn workspace_root(state: &AppState) -> CommandResult<std::path::PathBuf> {
     let guard = lock(&state.workspace)?;
     let root = &guard.as_ref().ok_or(CommandError::NoWorkspace)?.root;

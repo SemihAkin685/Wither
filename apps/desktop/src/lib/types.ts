@@ -85,3 +85,80 @@ export interface GitRepo {
   localBranches: string[];
   remoteBranches: string[];
 }
+
+/** One component the game knows for a document family, from bedrock_addon. */
+export interface CompletionComponent {
+  name: string;
+  released: string | null;
+  deprecatedSince: string | null;
+  supersededBy: string | null;
+  experimental: boolean;
+  fields: string[];
+}
+
+export interface CompletionFamily {
+  name: string;
+  payloadKey: string;
+  directories: string[];
+  members: string[];
+  description: string[];
+  /** Paths under the payload holding components, "*" matches any key or index. */
+  componentParents: string[];
+  components: CompletionComponent[];
+}
+
+export interface CompletionCatalog {
+  families: CompletionFamily[];
+  manifest: {
+    moduleTypes: string[];
+    capabilities: string[];
+    /** Newest version first. */
+    scriptModules: { name: string; versions: string[] }[];
+  };
+  vanilla: {
+    blocks: string[];
+    items: string[];
+    entities: string[];
+    biomes: string[];
+    effects: string[];
+    enchantments: string[];
+    commands: { name: string; aliases: string[]; usage: string }[];
+  };
+  /** Exports and members of the public script modules, generated from the game's metadata. */
+  scriptApi: ScriptModuleApi[];
+}
+
+export interface ScriptModuleApi {
+  name: string;
+  version: string;
+  exports: ScriptExport[];
+  types: ScriptType[];
+}
+
+export interface ScriptExport {
+  name: string;
+  kind: "class" | "interface" | "enum" | "error" | "object" | "function" | "constant";
+  detail: string;
+  /** The declared type an object export holds, `World` for `world`. */
+  typeName?: string;
+}
+
+export interface ScriptType {
+  name: string;
+  kind: "class" | "interface" | "enum" | "error";
+  bases?: string[];
+  members: ScriptMember[];
+}
+
+export interface ScriptMember {
+  name: string;
+  kind: "method" | "constructor" | "property" | "constant";
+  isStatic?: boolean;
+  detail: string;
+  /** The declared type the member gives back, for following a chain. */
+  returns?: string;
+  /** True when `returns` is the element type of an array. */
+  many?: boolean;
+  /** Declared types a callback argument of the method is called with. */
+  callback?: (string | null)[];
+}

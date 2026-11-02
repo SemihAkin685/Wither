@@ -1,6 +1,20 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { complete, loadCatalog, supportsCompletion, type Completion } from "../lib/completion";
+import {
+  copyLines,
+  deleteLines,
+  indentLines,
+  insertLine,
+  lineBlock,
+  lineCommentFor,
+  moveLines,
+  outdentLines,
+  toggleLineComment,
+  type Edit,
+} from "../lib/editing";
 import { highlight } from "../lib/highlight";
-import type { Language, Problem } from "../lib/types";
+import type { CompletionCatalog, Language, Problem } from "../lib/types";
+import { SUGGEST_ROWS, SuggestWidget } from "./SuggestWidget";
 
 interface CodeEditorProps {
   path: string;
@@ -20,6 +34,14 @@ interface ViewState {
   scrollLeft: number;
   selectionStart: number;
   selectionEnd: number;
+}
+
+interface SuggestState {
+  completion: Completion;
+  selected: number;
+  top: number;
+  left: string;
+  above: boolean;
 }
 
 const INDENT = "  ";
@@ -104,6 +126,19 @@ function layoutProblems(content: string, problems: Problem[]) {
   return { marks, byLine };
 }
 
+/** Replaces a range and sets the selection after it, still through insertText so undo works. */
+function applyEdit(textarea: HTMLTextAreaElement, edit: Edit) {
+  textarea.setSelectionRange(edit.start, edit.end);
+  // yeah, insertText with "" doesn't delete in every webkit build, delete does
+  if (edit.text || edit.start === edit.end || !document.execCommand("delete")) insert(textarea, edit.text);
+  textarea.setSelectionRange(edit.selectionStart, edit.selectionEnd);
+}
+
+/** Matches a letter shortcut by key or by physical key, so it still works on non latin layouts. */
+function isKey(event: KeyboardEvent<HTMLTextAreaElement>, letter: string) {
+  return event.key.toLowerCase() === letter || event.code === `Key${letter.toUpperCase()}`;
+}
+
 function insert(textarea: HTMLTextAreaElement, text: string) {
   // execCommand is deprecated but it's the only way to keep the native undo stack in a textarea
   if (!document.execCommand("insertText", false, text)) {
@@ -118,12 +153,104 @@ export function CodeEditor(props: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
   const [cursorLine, setCursorLine] = useState(1);
+  const [suggest, setSuggest] = useState<SuggestState | null>(null);
+  // ok so key handlers and input events need the list synchronously, the state only drives render
+  const suggestRef = useRef<SuggestState | null>(null);
+  const catalogRef = useRef<CompletionCatalog | null>(null);
+  // set while the editor itself writes into the textarea, those inputs shouldn't open suggestions
+  const programmaticRef = useRef(false);
   const lineHeight = Math.round(fontSize * 1.6);
 
   const tokens = useMemo(() => highlight(content, language), [content, language]);
   const lineCount = useMemo(() => content.split("\n").length, [content]);
   const { marks, byLine } = useMemo(() => layoutProblems(content, problems), [content, problems]);
   const gutterWidth = `${Math.max(2, String(lineCount).length) + 2}ch`;
+
+  useEffect(() => {
+    if (!supportsCompletion(language)) return;
+    let live = true;
+    loadCatalog().then((catalog) => {
+      if (live) catalogRef.current = catalog;
+    });
+    return () => {
+      live = false;
+    };
+  }, [language]);
+
+  const showSuggest = (next: SuggestState | null) => {
+    suggestRef.current = next;
+    setSuggest(next);
+  };
+
+  /**
+   * Recomputes suggestions at the caret. Without `open` it only refreshes a list that is already
+   * up, `manual` is Ctrl+Space.
+   */
+  const refreshSuggest = (open: boolean, manual = false) => {
+    const textarea = textareaRef.current;
+    const scroller = scrollRef.current;
+    if (!textarea || !scroller || !supportsCompletion(language)) return;
+    if (!open && !suggestRef.current) return;
+    if (textarea.selectionStart !== textarea.selectionEnd) return showSuggest(null);
+    if (!catalogRef.current) {
+      // the catalog can still be on its way on the first keystrokes, ask again once it lands
+      loadCatalog().then((catalog) => {
+        if (!catalog || catalogRef.current) return;
+        catalogRef.current = catalog;
+        if (document.activeElement === textareaRef.current) refreshSuggest(open, manual);
+      });
+    }
+    const text = textarea.value;
+    const completion = complete(language, path, text, textarea.selectionStart, catalogRef.current, manual);
+    if (!completion) return showSuggest(null);
+    const { line, column } = cursorOf(text, completion.start);
+    const lineText = text.split("\n", line)[line - 1] ?? "";
+    const lineTop = PADDING_Y + (line - 1) * lineHeight;
+    const height = Math.min(completion.items.length, SUGGEST_ROWS) * lineHeight + 8;
+    // flip above the line when there's no room under it but there is over it
+    const above =
+      lineTop + lineHeight + height > scroller.scrollTop + scroller.clientHeight && lineTop - height >= scroller.scrollTop;
+    showSuggest({
+      completion,
+      selected: 0,
+      top: above ? lineTop : lineTop + lineHeight,
+      left: `calc(${PADDING_X}px + ${visualColumn(lineText, column)}ch)`,
+      above,
+    });
+  };
+
+  const acceptSuggest = (index: number) => {
+    const textarea = textareaRef.current;
+    const current = suggestRef.current;
+    const item = current?.completion.items[index];
+    if (!textarea || !current || !item) return;
+    const { start, end, apply } = current.completion;
+    const { text, caret, retrigger } = apply(item);
+    showSuggest(null);
+    runEdit({ start, end, text, selectionStart: start + caret, selectionEnd: start + caret });
+    // like VS Code, a picked key goes straight on to its value suggestions
+    if (retrigger) refreshSuggest(true);
+  };
+
+  const runEdit = (edit: Edit | null) => {
+    const textarea = textareaRef.current;
+    if (!textarea || !edit) return;
+    programmaticRef.current = true;
+    applyEdit(textarea, edit);
+    programmaticRef.current = false;
+    syncCursor();
+  };
+
+  /** Typing a word character or a quote opens the list, deleting only narrows an open one. */
+  const afterInput = (event: Event) => {
+    if (programmaticRef.current || !supportsCompletion(language)) return;
+    // the setRangeText fallback in insert() fires a plain Event, no inputType on it
+    const type = (event as InputEvent).inputType ?? "";
+    const data = (event as InputEvent).data ?? "";
+    if (type === "insertText" && /^[\w"'`$@.:/\-]$/.test(data)) refreshSuggest(true);
+    else if (type.startsWith("delete")) refreshSuggest(false);
+    else showSuggest(null);
+  };
 
   const syncCursor = () => {
     const textarea = textareaRef.current;
@@ -132,6 +259,13 @@ export function CodeEditor(props: CodeEditorProps) {
     setCursorLine(line);
     onCursor(line, column);
     keepCaretVisible(line, column);
+    const open = suggestRef.current;
+    if (open) {
+      // hmm, select can fire before the input event, so one past the end still counts as typing
+      const { start, end } = open.completion;
+      const caret = textarea.selectionStart;
+      if (textarea.selectionEnd !== caret || caret < start || caret > end + 1) showSuggest(null);
+    }
   };
 
   const keepCaretVisible = (line: number, column: number, center = false) => {
@@ -192,11 +326,131 @@ export function CodeEditor(props: CodeEditorProps) {
     keepCaretVisible(reveal.line, reveal.column, true);
   }, [reveal?.seq]);
 
+  /**
+   * The VS Code editing shortcuts. Undo, redo and the clipboard go through execCommand so they
+   * share the textarea's native undo stack. True when the key was handled.
+   */
+  const handleShortcut = (event: KeyboardEvent<HTMLTextAreaElement>): boolean => {
+    const textarea = event.currentTarget;
+    const { selectionStart: from, selectionEnd: to, value } = textarea;
+    const ctrl = event.ctrlKey || event.metaKey;
+    const { shiftKey: shift, altKey: alt } = event;
+
+    if (ctrl && !alt) {
+      if (isKey(event, "z")) {
+        document.execCommand(shift ? "redo" : "undo");
+        return true;
+      }
+      if (isKey(event, "y") && !shift) {
+        document.execCommand("redo");
+        return true;
+      }
+      if ((isKey(event, "x") || isKey(event, "c")) && !shift) {
+        const cut = isKey(event, "x");
+        if (from === to) {
+          // nothing selected copies or cuts the whole line, break included, like VS Code
+          const block = lineBlock(value, from, to);
+          programmaticRef.current = true;
+          textarea.setSelectionRange(block.start, Math.min(value.length, block.end + 1));
+          document.execCommand(cut ? "cut" : "copy");
+          programmaticRef.current = false;
+          if (!cut) textarea.setSelectionRange(from, to);
+          syncCursor();
+        } else {
+          document.execCommand(cut ? "cut" : "copy");
+        }
+        return true;
+      }
+      if (isKey(event, "v") && !shift) {
+        // hmm, webkit refuses execCommand("paste") from script, the async clipboard api works
+        navigator.clipboard
+          .readText()
+          .then((text) => insert(textarea, text))
+          .catch(() => document.execCommand("paste"));
+        return true;
+      }
+      if (isKey(event, "k") && shift) {
+        runEdit(deleteLines(value, from, to));
+        return true;
+      }
+      if (isKey(event, "l") && !shift) {
+        const block = lineBlock(value, from, to);
+        textarea.setSelectionRange(block.start, Math.min(value.length, block.end + 1));
+        syncCursor();
+        return true;
+      }
+      if (event.key === "/" || event.code === "NumpadDivide") {
+        const marker = lineCommentFor(language);
+        if (marker) runEdit(toggleLineComment(value, from, to, marker));
+        return true;
+      }
+      if (event.key === "]" && !shift) {
+        runEdit(indentLines(value, from, to, INDENT));
+        return true;
+      }
+      if (event.key === "[" && !shift) {
+        runEdit(outdentLines(value, from, to, INDENT));
+        return true;
+      }
+      if (event.key === "Enter") {
+        runEdit(insertLine(value, from, to, !shift));
+        return true;
+      }
+    }
+    if (alt && !ctrl && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      const down = event.key === "ArrowDown";
+      runEdit(shift ? copyLines(value, from, to, down) : moveLines(value, from, to, down));
+      return true;
+    }
+    return false;
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     const textarea = event.currentTarget;
+    if (event.ctrlKey && (event.code === "Space" || event.key === " ")) {
+      event.preventDefault();
+      refreshSuggest(true, true);
+      return;
+    }
+    if (handleShortcut(event)) {
+      event.preventDefault();
+      showSuggest(null);
+      return;
+    }
+    const open = suggestRef.current;
+    if (open && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      const count = open.completion.items.length;
+      const move = (to: number) => {
+        event.preventDefault();
+        showSuggest({ ...open, selected: to });
+      };
+      switch (event.key) {
+        case "ArrowDown":
+          return move((open.selected + 1) % count);
+        case "ArrowUp":
+          return move((open.selected - 1 + count) % count);
+        case "PageDown":
+          return move(Math.min(count - 1, open.selected + SUGGEST_ROWS));
+        case "PageUp":
+          return move(Math.max(0, open.selected - SUGGEST_ROWS));
+        case "Enter":
+        case "Tab":
+          if (event.shiftKey) break;
+          event.preventDefault();
+          acceptSuggest(open.selected);
+          return;
+        case "Escape":
+          event.preventDefault();
+          showSuggest(null);
+          return;
+      }
+    }
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
-      if (!event.shiftKey) insert(textarea, INDENT);
+      const { selectionStart: from, selectionEnd: to, value } = textarea;
+      if (event.shiftKey) runEdit(outdentLines(value, from, to, INDENT));
+      else if (value.slice(from, to).includes("\n")) runEdit(indentLines(value, from, to, INDENT));
+      else insert(textarea, INDENT);
       return;
     }
     if (event.key === "Enter" && !event.ctrlKey && !event.metaKey) {
@@ -282,10 +536,26 @@ export function CodeEditor(props: CodeEditorProps) {
             autoComplete="off"
             autoCorrect="off"
             aria-label={`Editor for ${path}`}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => {
+              onChange(e.target.value);
+              afterInput(e.nativeEvent);
+            }}
             onKeyDown={onKeyDown}
             onSelect={syncCursor}
+            onBlur={() => showSuggest(null)}
           />
+          {suggest && (
+            <SuggestWidget
+              items={suggest.completion.items}
+              selected={suggest.selected}
+              top={suggest.top}
+              left={suggest.left}
+              above={suggest.above}
+              rowHeight={lineHeight}
+              onHover={(index) => showSuggest({ ...suggest, selected: index })}
+              onPick={acceptSuggest}
+            />
+          )}
         </div>
       </div>
     </div>
