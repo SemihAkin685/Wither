@@ -1,0 +1,117 @@
+name: Nightly
+
+on:
+  schedule:
+    # 03:00 UTC every day, runs against the default branch
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if nothing changed since the last nightly
+        type: boolean
+        default: false
+
+# one nightly at a time, a manual run shouldn't kill the scheduled one halfway through uploading
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: 22
+  TAG: nightly
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check for new commits
+        id: check
+        run: |
+          last=$(git ls-remote "https://github.com/${GH_REPO}.git" "refs/tags/${TAG}" | cut -f1)
+          if [ "$last" = "$GITHUB_SHA" ] && [ "${{ inputs.force }}" != "true" ]; then
+            echo "Nightly already points at $GITHUB_SHA, nothing to build."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # the nightly is a rolling prerelease, so drop the old one and its tag and start fresh
+      - name: Recreate nightly release
+        if: steps.check.outputs.build == 'true'
+        run: |
+          gh release delete "$TAG" --cleanup-tag --yes || true
+          short=${GITHUB_SHA:0:7}
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Wither Nightly ($(date -u +%Y-%m-%d))" \
+            --notes "Automated build of ${{ github.ref_name }} at ${short}. Nightlies are untested and may break, use a tagged release for real work."
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            os: ubuntu-22.04
+            args: ""
+          - name: Windows x64
+            os: windows-latest
+            args: ""
+          - name: macOS Apple Silicon
+            os: macos-latest
+            args: --target aarch64-apple-darwin
+          - name: macOS Intel
+            os: macos-latest
+            args: --target x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libxdo-dev libssl-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: nightly-${{ matrix.args }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: apps/desktop
+        run: npm ci
+
+      # hmm, tauri-action finds the release prepare made by its tag and only uploads the bundles
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ env.TAG }}
+          releaseName: Wither Nightly
+          releaseDraft: false
+          prerelease: true
+          args: ${{ matrix.args }}
