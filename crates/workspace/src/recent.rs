@@ -93,7 +93,10 @@ mod tests {
     fn save_and_load_round_trip() {
         let dir = std::env::temp_dir().join(format!("wither-recent-{}", std::process::id()));
         let file = dir.join("recent.json");
-        assert_eq!(RecentProjects::load(&file).unwrap(), RecentProjects::default());
+        assert_eq!(
+            RecentProjects::load(&file).unwrap(),
+            RecentProjects::default()
+        );
 
         let mut recent = RecentProjects::default();
         recent.touch("demo", "/demo", 42);
