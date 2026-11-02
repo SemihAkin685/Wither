@@ -22,6 +22,10 @@ interface CodeEditorProps {
   language: Language;
   fontSize: number;
   showLineNumbers: boolean;
+  tabSize: number;
+  highlightCurrentLine: boolean;
+  /** Off means the list only opens on Ctrl+Space. */
+  suggestions: boolean;
   reveal: { line: number; column: number; seq: number } | null;
   /** Problems in this file only. */
   problems: Problem[];
@@ -44,7 +48,6 @@ interface SuggestState {
   above: boolean;
 }
 
-const INDENT = "  ";
 const PADDING_Y = 8;
 const PADDING_X = 16;
 const viewStates = new Map<string, ViewState>();
@@ -72,11 +75,11 @@ function offsetOf(text: string, line: number, column: number) {
   return Math.min(offset + column - 1, lineEnd === -1 ? text.length : lineEnd);
 }
 
-/** Where `column` lands on screen, tabs stop every INDENT.length columns like the textarea. */
-function visualColumn(lineText: string, column: number) {
+/** Where `column` lands on screen, tabs stop every `tabSize` columns like the textarea. */
+function visualColumn(lineText: string, column: number, tabSize: number) {
   let visual = 0;
   for (let i = 0; i < column - 1 && i < lineText.length; i++) {
-    visual = lineText[i] === "\t" ? visual + INDENT.length - (visual % INDENT.length) : visual + 1;
+    visual = lineText[i] === "\t" ? visual + tabSize - (visual % tabSize) : visual + 1;
   }
   return visual + Math.max(0, column - 1 - lineText.length);
 }
@@ -98,17 +101,17 @@ interface LineProblems {
 }
 
 /** Underline boxes and per line summaries, in visual columns. */
-function layoutProblems(content: string, problems: Problem[]) {
+function layoutProblems(content: string, problems: Problem[], tabSize: number) {
   const lines = content.split("\n");
   const marks: ProblemMark[] = [];
   const byLine = new Map<number, LineProblems>();
   problems.forEach((problem, i) => {
     const text = lines[problem.line - 1];
     if (text === undefined) return;
-    const start = visualColumn(text, problem.column);
+    const start = visualColumn(text, problem.column, tabSize);
     // a span running onto later lines is only underlined up to the end of its first line
     const endColumn = problem.endLine > problem.line ? text.length + 1 : problem.endColumn;
-    const marked = text.slice(problem.column - 1, Math.max(problem.column, endColumn) - 1).replace(/\t/g, INDENT);
+    const marked = text.slice(problem.column - 1, Math.max(problem.column, endColumn) - 1).replace(/\t/g, " ".repeat(tabSize));
     // an empty mark (end of line, end of file) still gets one cell so there is something to see
     marks.push({ key: `${i}`, line: problem.line, severity: problem.severity, start, text: marked || " " });
     const entry = byLine.get(problem.line);
@@ -119,7 +122,7 @@ function layoutProblems(content: string, problems: Problem[]) {
       byLine.set(problem.line, {
         severity: problem.severity,
         messages: [problem.message],
-        end: visualColumn(text, text.length + 1),
+        end: visualColumn(text, text.length + 1, tabSize),
       });
     }
   });
@@ -148,7 +151,21 @@ function insert(textarea: HTMLTextAreaElement, text: string) {
 }
 
 export function CodeEditor(props: CodeEditorProps) {
-  const { path, content, language, fontSize, showLineNumbers, reveal, problems, onChange, onCursor } = props;
+  const {
+    path,
+    content,
+    language,
+    fontSize,
+    showLineNumbers,
+    tabSize,
+    highlightCurrentLine,
+    suggestions,
+    reveal,
+    problems,
+    onChange,
+    onCursor,
+  } = props;
+  const indentUnit = " ".repeat(tabSize);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
@@ -163,7 +180,10 @@ export function CodeEditor(props: CodeEditorProps) {
 
   const tokens = useMemo(() => highlight(content, language), [content, language]);
   const lineCount = useMemo(() => content.split("\n").length, [content]);
-  const { marks, byLine } = useMemo(() => layoutProblems(content, problems), [content, problems]);
+  const { marks, byLine } = useMemo(
+    () => layoutProblems(content, problems, tabSize),
+    [content, problems, tabSize],
+  );
   const gutterWidth = `${Math.max(2, String(lineCount).length) + 2}ch`;
 
   useEffect(() => {
@@ -214,7 +234,7 @@ export function CodeEditor(props: CodeEditorProps) {
       completion,
       selected: 0,
       top: above ? lineTop : lineTop + lineHeight,
-      left: `calc(${PADDING_X}px + ${visualColumn(lineText, column)}ch)`,
+      left: `calc(${PADDING_X}px + ${visualColumn(lineText, column, tabSize)}ch)`,
       above,
     });
   };
@@ -244,6 +264,8 @@ export function CodeEditor(props: CodeEditorProps) {
   /** Typing a word character or a quote opens the list, deleting only narrows an open one. */
   const afterInput = (event: Event) => {
     if (programmaticRef.current || !supportsCompletion(language)) return;
+    // with suggestions off, typing still narrows a list opened by hand but never opens one
+    if (!suggestions && !suggestRef.current) return;
     // the setRangeText fallback in insert() fires a plain Event, no inputType on it
     const type = (event as InputEvent).inputType ?? "";
     const data = (event as InputEvent).data ?? "";
@@ -385,11 +407,11 @@ export function CodeEditor(props: CodeEditorProps) {
         return true;
       }
       if (event.key === "]" && !shift) {
-        runEdit(indentLines(value, from, to, INDENT));
+        runEdit(indentLines(value, from, to, indentUnit));
         return true;
       }
       if (event.key === "[" && !shift) {
-        runEdit(outdentLines(value, from, to, INDENT));
+        runEdit(outdentLines(value, from, to, indentUnit));
         return true;
       }
       if (event.key === "Enter") {
@@ -448,9 +470,9 @@ export function CodeEditor(props: CodeEditorProps) {
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
       const { selectionStart: from, selectionEnd: to, value } = textarea;
-      if (event.shiftKey) runEdit(outdentLines(value, from, to, INDENT));
-      else if (value.slice(from, to).includes("\n")) runEdit(indentLines(value, from, to, INDENT));
-      else insert(textarea, INDENT);
+      if (event.shiftKey) runEdit(outdentLines(value, from, to, indentUnit));
+      else if (value.slice(from, to).includes("\n")) runEdit(indentLines(value, from, to, indentUnit));
+      else insert(textarea, indentUnit);
       return;
     }
     if (event.key === "Enter" && !event.ctrlKey && !event.metaKey) {
@@ -459,7 +481,7 @@ export function CodeEditor(props: CodeEditorProps) {
       const lineStart = before.lastIndexOf("\n") + 1;
       const indent = /^[ \t]*/.exec(before.slice(lineStart))?.[0] ?? "";
       const opensBlock = /[{[(]\s*$/.test(before);
-      insert(textarea, `\n${indent}${opensBlock ? INDENT : ""}`);
+      insert(textarea, `\n${indent}${opensBlock ? indentUnit : ""}`);
     }
   };
 
@@ -470,6 +492,7 @@ export function CodeEditor(props: CodeEditorProps) {
       style={{
         fontSize,
         lineHeight: `${lineHeight}px`,
+        tabSize,
         ["--line-height" as string]: `${lineHeight}px`,
       }}
     >
@@ -491,7 +514,9 @@ export function CodeEditor(props: CodeEditorProps) {
           </div>
         )}
         <div className="code-surface">
-          <div className="current-line" style={{ top: PADDING_Y + (cursorLine - 1) * lineHeight }} />
+          {highlightCurrentLine && (
+            <div className="current-line" style={{ top: PADDING_Y + (cursorLine - 1) * lineHeight }} />
+          )}
           <div className="problem-layer" aria-hidden>
             {/* ok so the font is monospace, ch lines these up with the text without measuring */}
             {marks.map((mark) => (

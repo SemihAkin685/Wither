@@ -7,7 +7,15 @@ export const defaultSettings: Settings = {
   uiFontSize: 13,
   editorFontSize: 14,
   showLineNumbers: true,
+  tabSize: 2,
+  highlightCurrentLine: true,
+  suggestions: true,
 };
+
+// mirrors of the clamps in crates/core/src/settings.rs
+export const UI_FONT_SIZE_RANGE = [11, 18] as const;
+export const EDITOR_FONT_SIZE_RANGE = [10, 24] as const;
+export const TAB_SIZE_RANGE = [1, 8] as const;
 
 function applyToDocument(settings: Settings) {
   const root = document.documentElement;

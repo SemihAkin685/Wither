@@ -27,6 +27,8 @@ pub enum CommandError {
     Terminal(#[from] TerminalError),
     #[error(transparent)]
     Git(#[from] GitError),
+    #[error("could not save settings: {0}")]
+    SaveSettings(std::io::Error),
     #[error("application state is unavailable")]
     Poisoned,
 }
@@ -61,6 +63,9 @@ pub fn update_settings(
 ) -> CommandResult<Settings> {
     let mut settings = lock(&state.settings)?;
     settings.apply(patch);
+    if let Some(path) = &state.settings_path {
+        settings.save(path).map_err(CommandError::SaveSettings)?;
+    }
     Ok(settings.clone())
 }
 

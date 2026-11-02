@@ -148,6 +148,9 @@ export function EditorArea(props: EditorAreaProps) {
           language={node?.language ?? "plaintext"}
           fontSize={settings.editorFontSize}
           showLineNumbers={settings.showLineNumbers}
+          tabSize={settings.tabSize}
+          highlightCurrentLine={settings.highlightCurrentLine}
+          suggestions={settings.suggestions}
           reveal={state.reveal?.path === tab.path ? state.reveal : null}
           problems={fileProblems}
           onChange={(text) => dispatch({ type: "edit", path: tab.path, content: text })}

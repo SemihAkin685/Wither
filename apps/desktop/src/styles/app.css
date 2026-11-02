@@ -1370,11 +1370,36 @@ kbd {
   width: 100%;
   max-width: 680px;
 }
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
 .settings-inner h1 {
-  margin: 0 0 24px;
+  margin: 0;
   font-size: 1.7em;
   font-weight: 600;
   letter-spacing: -0.01em;
+}
+.settings-reset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+}
+.settings-reset:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.settings-reset:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 .settings-inner section {
   margin-bottom: 32px;

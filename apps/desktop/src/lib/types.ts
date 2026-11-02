@@ -11,6 +11,9 @@ export interface Settings {
   uiFontSize: number;
   editorFontSize: number;
   showLineNumbers: boolean;
+  tabSize: number;
+  highlightCurrentLine: boolean;
+  suggestions: boolean;
 }
 
 export type SettingsPatch = Partial<Settings>;
