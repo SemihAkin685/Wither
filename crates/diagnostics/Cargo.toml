@@ -1,0 +1,17 @@
+[package]
+name = "wither-diagnostics"
+description = "Addon, JSON and script problems for Wither, found with bedrock_addon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bedrock_addon.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+wither-workspace.workspace = true

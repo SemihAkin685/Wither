@@ -1,9 +1,11 @@
+use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize, Serializer};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::State;
 use wither_core::{AppInfo, Settings, SettingsPatch};
+use wither_diagnostics::Problem;
 use wither_git::{GitError, RepoStatus};
 use wither_terminal::{SpawnOptions, TerminalError, TerminalSize};
 use wither_workspace::{sample, RecentProject, SearchMatch, Workspace, WorkspaceError};
@@ -106,6 +108,31 @@ pub fn search_workspace(
     let guard = lock(&state.workspace)?;
     let workspace = guard.as_ref().ok_or(CommandError::NoWorkspace)?;
     Ok(workspace.search(&query, SEARCH_LIMIT))
+}
+
+/// Checks the open workspace with `unsaved` laid over the stored files, so problems follow
+/// the editor as you type. Paths that aren't in the workspace are ignored.
+#[tauri::command]
+pub async fn check_workspace(
+    state: State<'_, AppState>,
+    unsaved: HashMap<String, String>,
+) -> CommandResult<Vec<Problem>> {
+    let files: Vec<(String, String)> = {
+        let guard = lock(&state.workspace)?;
+        let workspace = guard.as_ref().ok_or(CommandError::NoWorkspace)?;
+        workspace
+            .text_files()
+            .map(|(path, text)| {
+                let text = unsaved.get(path).map_or(text, String::as_str);
+                (path.to_owned(), text.to_owned())
+            })
+            .collect()
+    };
+    Ok(wither_diagnostics::check(
+        files
+            .iter()
+            .map(|(path, text)| (path.as_str(), text.as_str())),
+    ))
 }
 
 fn workspace_root(state: &AppState) -> CommandResult<std::path::PathBuf> {

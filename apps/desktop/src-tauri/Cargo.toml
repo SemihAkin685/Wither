@@ -22,6 +22,7 @@ tauri-build.workspace = true
 
 [dependencies]
 wither-core.workspace = true
+wither-diagnostics.workspace = true
 wither-git.workspace = true
 wither-terminal.workspace = true
 wither-workspace.workspace = true

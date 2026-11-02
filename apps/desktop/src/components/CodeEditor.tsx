@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { highlight } from "../lib/highlight";
-import type { Language } from "../lib/types";
+import type { Language, Problem } from "../lib/types";
 
 interface CodeEditorProps {
   path: string;
@@ -9,6 +9,8 @@ interface CodeEditorProps {
   fontSize: number;
   showLineNumbers: boolean;
   reveal: { line: number; column: number; seq: number } | null;
+  /** Problems in this file only. */
+  problems: Problem[];
   onChange: (content: string) => void;
   onCursor: (line: number, column: number) => void;
 }
@@ -48,6 +50,60 @@ function offsetOf(text: string, line: number, column: number) {
   return Math.min(offset + column - 1, lineEnd === -1 ? text.length : lineEnd);
 }
 
+/** Where `column` lands on screen, tabs stop every INDENT.length columns like the textarea. */
+function visualColumn(lineText: string, column: number) {
+  let visual = 0;
+  for (let i = 0; i < column - 1 && i < lineText.length; i++) {
+    visual = lineText[i] === "\t" ? visual + INDENT.length - (visual % INDENT.length) : visual + 1;
+  }
+  return visual + Math.max(0, column - 1 - lineText.length);
+}
+
+interface ProblemMark {
+  key: string;
+  line: number;
+  severity: Problem["severity"];
+  start: number;
+  /** The marked characters, drawn transparent so only their wavy underline shows. */
+  text: string;
+}
+
+interface LineProblems {
+  severity: Problem["severity"];
+  messages: string[];
+  /** Visual width of the line, the inline message goes right after it. */
+  end: number;
+}
+
+/** Underline boxes and per line summaries, in visual columns. */
+function layoutProblems(content: string, problems: Problem[]) {
+  const lines = content.split("\n");
+  const marks: ProblemMark[] = [];
+  const byLine = new Map<number, LineProblems>();
+  problems.forEach((problem, i) => {
+    const text = lines[problem.line - 1];
+    if (text === undefined) return;
+    const start = visualColumn(text, problem.column);
+    // a span running onto later lines is only underlined up to the end of its first line
+    const endColumn = problem.endLine > problem.line ? text.length + 1 : problem.endColumn;
+    const marked = text.slice(problem.column - 1, Math.max(problem.column, endColumn) - 1).replace(/\t/g, INDENT);
+    // an empty mark (end of line, end of file) still gets one cell so there is something to see
+    marks.push({ key: `${i}`, line: problem.line, severity: problem.severity, start, text: marked || " " });
+    const entry = byLine.get(problem.line);
+    if (entry) {
+      entry.messages.push(problem.message);
+      if (problem.severity === "error") entry.severity = "error";
+    } else {
+      byLine.set(problem.line, {
+        severity: problem.severity,
+        messages: [problem.message],
+        end: visualColumn(text, text.length + 1),
+      });
+    }
+  });
+  return { marks, byLine };
+}
+
 function insert(textarea: HTMLTextAreaElement, text: string) {
   // execCommand is deprecated but it's the only way to keep the native undo stack in a textarea
   if (!document.execCommand("insertText", false, text)) {
@@ -57,7 +113,7 @@ function insert(textarea: HTMLTextAreaElement, text: string) {
 }
 
 export function CodeEditor(props: CodeEditorProps) {
-  const { path, content, language, fontSize, showLineNumbers, reveal, onChange, onCursor } = props;
+  const { path, content, language, fontSize, showLineNumbers, reveal, problems, onChange, onCursor } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
@@ -66,6 +122,7 @@ export function CodeEditor(props: CodeEditorProps) {
 
   const tokens = useMemo(() => highlight(content, language), [content, language]);
   const lineCount = useMemo(() => content.split("\n").length, [content]);
+  const { marks, byLine } = useMemo(() => layoutProblems(content, problems), [content, problems]);
   const gutterWidth = `${Math.max(2, String(lineCount).length) + 2}ch`;
 
   const syncCursor = () => {
@@ -168,15 +225,41 @@ export function CodeEditor(props: CodeEditorProps) {
       <div className="code-inner" style={{ minHeight: lineCount * lineHeight + PADDING_Y * 2 }}>
         {showLineNumbers && (
           <div className="gutter" style={{ width: gutterWidth }} aria-hidden>
-            {Array.from({ length: lineCount }, (_, i) => (
-              <div key={i} className={i + 1 === cursorLine ? "is-current" : ""}>
-                {i + 1}
-              </div>
-            ))}
+            {Array.from({ length: lineCount }, (_, i) => {
+              const lineProblems = byLine.get(i + 1);
+              const classes = [i + 1 === cursorLine ? "is-current" : "", lineProblems ? `has-${lineProblems.severity}` : ""];
+              return (
+                <div key={i} className={classes.join(" ").trim()} title={lineProblems?.messages.join("\n")}>
+                  {i + 1}
+                </div>
+              );
+            })}
           </div>
         )}
         <div className="code-surface">
           <div className="current-line" style={{ top: PADDING_Y + (cursorLine - 1) * lineHeight }} />
+          <div className="problem-layer" aria-hidden>
+            {/* ok so the font is monospace, ch lines these up with the text without measuring */}
+            {marks.map((mark) => (
+              <div
+                key={mark.key}
+                className={`problem-mark is-${mark.severity}`}
+                style={{ top: PADDING_Y + (mark.line - 1) * lineHeight, left: `calc(${PADDING_X}px + ${mark.start}ch)` }}
+              >
+                {mark.text}
+              </div>
+            ))}
+            {[...byLine].map(([line, entry]) => (
+              <div
+                key={line}
+                className={`problem-inline is-${entry.severity}`}
+                style={{ top: PADDING_Y + (line - 1) * lineHeight, left: `calc(${PADDING_X}px + ${entry.end + 3}ch)` }}
+              >
+                {entry.messages[0]}
+                {entry.messages.length > 1 && ` (+${entry.messages.length - 1})`}
+              </div>
+            ))}
+          </div>
           <pre className="code-highlight" aria-hidden>
             {tokens.map((token, i) =>
               token.kind ? (

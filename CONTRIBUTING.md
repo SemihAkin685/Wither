@@ -10,7 +10,7 @@ For anything bigger than a small fix, open an issue first so we can agree on the
 
 You need:
 
-- Rust 1.80 or newer (stable, via rustup)
+- Rust 1.98 or newer (stable, via rustup)
 - Node.js 20 or newer
 - The Tauri system dependencies for your platform, see the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 
@@ -44,6 +44,7 @@ npm run dev starts Vite and launches the app with hot reload. Rust changes trigg
 | apps/desktop/src | React and TypeScript frontend |
 | apps/desktop/src-tauri | Tauri app crate, IPC commands and app state |
 | crates/core | Shared app types and settings |
+| crates/diagnostics | Pack, JSON and script problems through bedrock_addon |
 | crates/git | Repository status, init and branch operations through the git CLI |
 | crates/terminal | Pty sessions for the terminal panel |
 | crates/workspace | Workspace tree, in memory files, search, sample project |

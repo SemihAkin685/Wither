@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronRight, CircleAlert, Columns2, Loader } from "lucide-react";
 import { isUiDefinitionFile } from "../lib/jsonui/catalog";
 import type { AppInfo, Settings, SettingsPatch } from "../lib/types";
@@ -96,6 +96,11 @@ export function EditorArea(props: EditorAreaProps) {
   const { state, actions, settings, appInfo, onSettingsChange, onOpenPalette, onOpenSettings } = props;
   const { dispatch } = actions;
   const tab = activeTab(state);
+  const filePath = tab?.kind === "file" ? tab.path : null;
+  const fileProblems = useMemo(
+    () => state.problems.filter((p) => p.path === filePath),
+    [state.problems, filePath],
+  );
 
   const body = (() => {
     if (!tab) return <EmptyEditor />;
@@ -144,6 +149,7 @@ export function EditorArea(props: EditorAreaProps) {
           fontSize={settings.editorFontSize}
           showLineNumbers={settings.showLineNumbers}
           reveal={state.reveal?.path === tab.path ? state.reveal : null}
+          problems={fileProblems}
           onChange={(text) => dispatch({ type: "edit", path: tab.path, content: text })}
           onCursor={(line, column) => dispatch({ type: "setCursor", line, column })}
         />

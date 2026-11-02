@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["apps/desktop/src-tauri", "crates/core", "crates/git", "crates/terminal", "crates/workspace"]
+members = ["apps/desktop/src-tauri", "crates/core", "crates/diagnostics", "crates/git", "crates/terminal", "crates/workspace"]
 
 [workspace.package]
 version = "0.1.0"
@@ -9,10 +9,11 @@ license = "MIT"
 authors = ["Wither contributors"]
 repository = "https://github.com/SemihAkin685/Wither"
 homepage = "https://github.com/SemihAkin685/Wither"
-rust-version = "1.80"
+rust-version = "1.98"
 
 [workspace.dependencies]
 wither-core = { path = "crates/core" }
+wither-diagnostics = { path = "crates/diagnostics" }
 wither-git = { path = "crates/git" }
 wither-terminal = { path = "crates/terminal" }
 wither-workspace = { path = "crates/workspace" }
@@ -22,6 +23,9 @@ thiserror = "2"
 portable-pty = "0.9"
 tauri = { version = "2", features = [] }
 tauri-build = { version = "2", features = [] }
+# hmm, the addon crates only live on bedrock-rs's old feat/addon history, so pin the exact commit shulker builds against
+# and keep smallvec at 2.0.0-beta.1 in Cargo.lock, newer betas break bedrock_addon_support
+bedrock_addon = { git = "https://github.com/bedrock-crustaceans/bedrock-rs", rev = "400182185cd7d3ac313729afd98ca336f76b1452", default-features = false, features = ["full", "molang", "script-syntax"] }
 
 [profile.release]
 lto = true

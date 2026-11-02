@@ -55,15 +55,16 @@ impl Workspace {
         Ok(())
     }
 
+    /// Every text file with its contents, sorted by path.
+    pub fn text_files(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.files
+            .iter()
+            .filter(|(path, _)| Language::from_path(path).is_text())
+            .map(|(path, text)| (path.as_str(), text.as_str()))
+    }
+
     pub fn search(&self, query: &str, limit: usize) -> Vec<SearchMatch> {
-        search::search_files(
-            self.files
-                .iter()
-                .filter(|(path, _)| Language::from_path(path).is_text())
-                .map(|(path, text)| (path.as_str(), text.as_str())),
-            query,
-            limit,
-        )
+        search::search_files(self.text_files(), query, limit)
     }
 }
 

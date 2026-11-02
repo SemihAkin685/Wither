@@ -1,4 +1,4 @@
-import type { FileNode, Workspace } from "../lib/types";
+import type { FileNode, Problem, Workspace } from "../lib/types";
 import { fileName, flattenFiles, parentDirs } from "../lib/tree";
 
 export type SidebarView = "explorer" | "search";
@@ -40,6 +40,8 @@ export interface WorkbenchState {
   reveal: { path: string; line: number; column: number; seq: number } | null;
   /** Files showing the JSON UI preview next to the editor. */
   previews: Record<string, boolean>;
+  /** Latest check of the workspace, unsaved edits included. */
+  problems: Problem[];
 }
 
 export const SIDEBAR_WIDTH = { min: 180, max: 520, initial: 260 };
@@ -66,6 +68,7 @@ export const initialState: WorkbenchState = {
   output: [],
   reveal: null,
   previews: {},
+  problems: [],
 };
 
 export type Action =
@@ -96,6 +99,7 @@ export type Action =
   | { type: "togglePreview"; path: string }
   | { type: "openPalette"; mode: PaletteMode }
   | { type: "closePalette" }
+  | { type: "problemsChecked"; problems: Problem[] }
   | { type: "log"; line: OutputLine }
   | { type: "clearOutput" };
 
@@ -142,6 +146,7 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
         expanded,
         selectedPath: null,
         buffers: {},
+        problems: [],
         sidebar: { ...state.sidebar, visible: true, view: "explorer" },
       };
     }
@@ -153,6 +158,7 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
         expanded: {},
         selectedPath: null,
         previews: {},
+        problems: [],
       };
     case "openTab":
       return withTab(state, action.tab);
@@ -275,6 +281,8 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
       return { ...state, palette: action.mode };
     case "closePalette":
       return { ...state, palette: null };
+    case "problemsChecked":
+      return { ...state, problems: action.problems };
     case "log":
       return { ...state, output: [...state.output, action.line].slice(-MAX_OUTPUT_LINES) };
     case "clearOutput":
@@ -284,6 +292,16 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
 
 export function activeTab(state: WorkbenchState): Tab | undefined {
   return state.tabs.find((t) => t.id === state.activeTabId);
+}
+
+export function problemCounts(problems: Problem[]) {
+  let errors = 0;
+  let warnings = 0;
+  for (const problem of problems) {
+    if (problem.severity === "error") errors++;
+    else if (problem.severity === "warning") warnings++;
+  }
+  return { errors, warnings };
 }
 
 export function isDirty(state: WorkbenchState, path: string): boolean {

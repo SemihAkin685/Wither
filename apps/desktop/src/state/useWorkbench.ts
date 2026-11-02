@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 import { fileName } from "../lib/tree";
 import {
@@ -25,6 +25,8 @@ export interface WorkbenchActions {
 
 let nextLogId = 1;
 
+const CHECK_DELAY_MS = 300;
+
 function timestamp(): string {
   return new Date().toLocaleTimeString([], { hour12: false });
 }
@@ -38,6 +40,31 @@ export function useWorkbench() {
   const log = useCallback((message: string, level: OutputLine["level"] = "info") => {
     dispatch({ type: "log", line: { id: nextLogId++, time: timestamp(), level, message } });
   }, []);
+
+  // recheck a moment after typing stops, unsaved edits go along so problems follow the editor
+  const checkSeq = useRef(0);
+  useEffect(() => {
+    // bumped even with no workspace, so a check still in flight when it closes gets dropped
+    const seq = ++checkSeq.current;
+    if (!state.workspace) return;
+    const timer = setTimeout(() => {
+      const unsaved = Object.fromEntries(
+        Object.entries(state.buffers).flatMap(([path, b]) =>
+          b.status === "ready" && b.content !== b.saved ? [[path, b.content]] : [],
+        ),
+      );
+      api
+        .checkWorkspace(unsaved)
+        .then((problems) => {
+          // hmm, a slower older check can land after a newer one, drop it
+          if (seq === checkSeq.current) dispatch({ type: "problemsChecked", problems });
+        })
+        .catch((error) => {
+          if (seq === checkSeq.current) log(`Could not check the workspace: ${errorMessage(error)}`, "error");
+        });
+    }, CHECK_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [state.workspace, state.buffers, log]);
 
   const openWorkspace = useCallback(async () => {
     try {

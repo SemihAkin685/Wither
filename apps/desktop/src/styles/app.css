@@ -1524,6 +1524,84 @@ kbd {
 .output-line.is-error {
   color: var(--danger);
 }
+/* problems */
+
+.problem-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.problem-mark {
+  position: absolute;
+  height: var(--line-height);
+  white-space: pre;
+  color: transparent;
+  text-decoration: underline wavy var(--danger);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+.problem-mark.is-warning {
+  text-decoration-color: var(--warning);
+}
+.problem-mark.is-info {
+  text-decoration-color: var(--accent);
+}
+.problem-inline {
+  position: absolute;
+  height: var(--line-height);
+  white-space: pre;
+  font-style: italic;
+  color: var(--danger);
+  opacity: 0.75;
+}
+.problem-inline.is-warning {
+  color: var(--warning);
+}
+.problem-inline.is-info {
+  color: var(--accent);
+}
+.gutter .has-error {
+  color: var(--danger);
+}
+.gutter .has-warning {
+  color: var(--warning);
+}
+.problem-list {
+  overflow: auto;
+  padding: 2px 8px 10px;
+}
+.problem-file {
+  padding-left: 6px;
+}
+.problem-file .tree-label {
+  color: var(--text);
+  flex: none;
+}
+.problem-row {
+  padding-left: 26px;
+  cursor: pointer;
+}
+.problem-icon {
+  flex: none;
+  color: var(--danger);
+}
+.problem-icon.is-warning {
+  color: var(--warning);
+}
+.problem-icon.is-info {
+  color: var(--accent);
+}
+.problem-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.problem-detail {
+  flex: none;
+  color: var(--text-faint);
+  font-size: 0.92em;
+}
+
 .terminal-host {
   flex: 1;
   min-width: 0;

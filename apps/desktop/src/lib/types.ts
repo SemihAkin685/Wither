@@ -53,6 +53,20 @@ export interface SearchMatch {
   matchLen: number;
 }
 
+export type ProblemSeverity = "error" | "warning" | "info";
+
+/** A finding in one workspace file. Lines and columns are 1 based, the end is exclusive. */
+export interface Problem {
+  path: string;
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+  severity: ProblemSeverity;
+  message: string;
+  jsonPath: string;
+}
+
 export interface TerminalSize {
   cols: number;
   rows: number;

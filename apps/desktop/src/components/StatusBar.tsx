@@ -2,7 +2,7 @@ import { CircleX, Files, Moon, PanelBottom, Search, SquareTerminal, Sun, Triangl
 import { languageLabel } from "../lib/tree";
 import type { Theme } from "../lib/types";
 import type { WorkbenchActions } from "../state/useWorkbench";
-import { activeTab, type WorkbenchState } from "../state/workbench";
+import { activeTab, problemCounts, type WorkbenchState } from "../state/workbench";
 import { IconButton } from "./ui";
 
 interface StatusBarProps {
@@ -22,6 +22,7 @@ export function StatusBar({ state, actions, theme, onToggleTheme, onShowSearch, 
   const buffer = fileTab ? state.buffers[fileTab.path] : undefined;
   const language = fileTab ? state.files[fileTab.path]?.language : undefined;
   const editing = buffer?.status === "ready";
+  const counts = problemCounts(state.problems);
 
   return (
     <footer className="statusbar">
@@ -47,8 +48,10 @@ export function StatusBar({ state, actions, theme, onToggleTheme, onShowSearch, 
           title="Problems (Ctrl+Shift+M)"
           onClick={() => dispatch({ type: "showPanelView", view: "problems" })}
         >
-          <CircleX size={13} />0
-          <TriangleAlert size={13} />0
+          <CircleX size={13} />
+          {counts.errors}
+          <TriangleAlert size={13} />
+          {counts.warnings}
         </button>
       </div>
 

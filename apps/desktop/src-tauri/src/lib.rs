@@ -16,6 +16,7 @@ pub fn run() {
             commands::read_file,
             commands::write_file,
             commands::search_workspace,
+            commands::check_workspace,
             commands::git_status,
             commands::git_init,
             commands::git_checkout,

@@ -4,11 +4,11 @@
 
 Wither is a native desktop IDE for Minecraft Bedrock Edition addon development, built with Rust and Tauri.
 
-This first milestone is the IDE shell: title bar, explorer, workspace search, editor tabs, a lightweight code editor, bottom panel with a real system terminal, status bar, command palette and themes. Workspaces are served from mock data for now. Linting, validation, packaging and Minecraft integration come later.
+This first milestone is the IDE shell: title bar, explorer, workspace search, editor tabs, a lightweight code editor, bottom panel with a real system terminal, status bar, command palette and themes. Workspaces are served from mock data for now. Packs are checked as you type with [bedrock_addon](https://github.com/bedrock-crustaceans/bedrock-rs), the library behind [shulker](https://github.com/bedrock-crustaceans/shulker): JSON and script syntax errors and what the game would report about the addon show up in the editor and the Problems panel. Packaging and Minecraft integration come later.
 
 ## Requirements
 
-Rust 1.80+, Node 20+, and the Tauri system dependencies for your platform (on Linux: webkit2gtk 4.1 and GTK 3).
+Rust 1.98+, Node 20+, and the Tauri system dependencies for your platform (on Linux: webkit2gtk 4.1 and GTK 3).
 
 ## Development
 
