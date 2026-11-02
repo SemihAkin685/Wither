@@ -27,6 +27,20 @@ pub struct Settings {
     pub tab_size: u8,
     pub highlight_current_line: bool,
     pub suggestions: bool,
+    /// A com.mojang folder to test in, empty means use the detected installs.
+    pub minecraft_install: String,
+    /// Command that starts the game, empty means pick one for this OS.
+    pub launch_command: String,
+    /// Where the last "Test in game" went, so the next run is one click.
+    pub last_test_target: Option<TestTarget>,
+}
+
+/// An install (by id) and optionally a world folder in it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TestTarget {
+    pub install: String,
+    pub world: Option<String>,
 }
 
 impl Default for Settings {
@@ -39,6 +53,9 @@ impl Default for Settings {
             tab_size: 2,
             highlight_current_line: true,
             suggestions: true,
+            minecraft_install: String::new(),
+            launch_command: String::new(),
+            last_test_target: None,
         }
     }
 }
@@ -53,6 +70,8 @@ pub struct SettingsPatch {
     pub tab_size: Option<u8>,
     pub highlight_current_line: Option<bool>,
     pub suggestions: Option<bool>,
+    pub minecraft_install: Option<String>,
+    pub launch_command: Option<String>,
 }
 
 impl Settings {
@@ -105,6 +124,12 @@ impl Settings {
         }
         if let Some(suggestions) = patch.suggestions {
             self.suggestions = suggestions;
+        }
+        if let Some(path) = patch.minecraft_install {
+            self.minecraft_install = path.trim().to_owned();
+        }
+        if let Some(command) = patch.launch_command {
+            self.launch_command = command.trim().to_owned();
         }
         self.clamp();
     }
@@ -175,6 +200,8 @@ mod tests {
         assert_eq!(settings.theme, Theme::Light);
         assert_eq!(settings.tab_size, Settings::default().tab_size);
         assert!(settings.suggestions);
+        assert!(settings.minecraft_install.is_empty());
+        assert_eq!(settings.last_test_target, None);
     }
 
     #[test]

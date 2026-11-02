@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["apps/desktop/src-tauri", "crates/blockbench", "crates/completion", "crates/core", "crates/diagnostics", "crates/git", "crates/terminal", "crates/workspace"]
+members = ["apps/desktop/src-tauri", "crates/blockbench", "crates/completion", "crates/core", "crates/diagnostics", "crates/git", "crates/packs", "crates/terminal", "crates/workspace"]
 
 [workspace.package]
 version = "0.1.0"
@@ -17,12 +17,14 @@ wither-completion = { path = "crates/completion" }
 wither-core = { path = "crates/core" }
 wither-diagnostics = { path = "crates/diagnostics" }
 wither-git = { path = "crates/git" }
+wither-packs = { path = "crates/packs" }
 wither-terminal = { path = "crates/terminal" }
 wither-workspace = { path = "crates/workspace" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 portable-pty = "0.9"
+zip = { version = "9", default-features = false, features = ["deflate"] }
 tauri = { version = "2", features = [] }
 tauri-build = { version = "2", features = [] }
 tauri-plugin-dialog = "2"

@@ -26,6 +26,7 @@ wither-completion.workspace = true
 wither-core.workspace = true
 wither-diagnostics.workspace = true
 wither-git.workspace = true
+wither-packs.workspace = true
 wither-terminal.workspace = true
 wither-workspace.workspace = true
 serde.workspace = true

@@ -107,6 +107,11 @@ impl Workspace {
         crate::models::model_for(self.text_files(), path, text)
     }
 
+    /// The folder this workspace was opened from, None for the in-memory sample.
+    pub fn disk_root(&self) -> Option<&Path> {
+        self.disk_root.as_deref()
+    }
+
     /// Where a workspace file lives on disk, None for in-memory workspaces and unknown paths.
     pub fn disk_path(&self, path: &str) -> Option<PathBuf> {
         let root = self.disk_root.as_ref()?;

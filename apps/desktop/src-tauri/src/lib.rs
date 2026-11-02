@@ -42,6 +42,14 @@ pub fn run() {
             commands::terminal_write,
             commands::terminal_resize,
             commands::terminal_kill,
+            commands::list_packs,
+            commands::export_addon,
+            commands::import_archive,
+            commands::minecraft_installs,
+            commands::list_worlds,
+            commands::world_icon,
+            commands::game_running,
+            commands::test_in_game,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Wither");
