@@ -267,22 +267,63 @@ function seeThrough(item: Placed, alpha: number, textures: TextureSource | null)
   return alpha * tint > 0 && alpha * tint < 1;
 }
 
-/** Blurs the already painted pixels under rect, in device pixels so the radius doesn't scale twice. */
+/**
+ * Blurs the already painted pixels under rect, in device pixels so the radius doesn't scale twice.
+ * Done by hand since WebKitGTK (Tauri on Linux) silently ignores ctx.filter.
+ */
 function blurBehind(ctx: CanvasRenderingContext2D, rect: Rect) {
   const m = ctx.getTransform();
-  const x = Math.floor(rect.x * m.a + m.e);
-  const y = Math.floor(rect.y * m.d + m.f);
-  const w = Math.ceil(rect.w * m.a);
-  const h = Math.ceil(rect.h * m.d);
-  const radius = BLUR_RADIUS * m.a;
+  const x = Math.max(0, Math.floor(rect.x * m.a + m.e));
+  const y = Math.max(0, Math.floor(rect.y * m.d + m.f));
+  const w = Math.min(ctx.canvas.width - x, Math.ceil(rect.w * m.a));
+  const h = Math.min(ctx.canvas.height - y, Math.ceil(rect.h * m.d));
+  const radius = Math.round(BLUR_RADIUS * m.a);
+  if (w <= 0 || h <= 0 || radius < 1) return;
+  const image = ctx.getImageData(x, y, w, h);
+  // three box passes per axis land close enough to a gaussian
+  const scratch = new Uint8ClampedArray(image.data.length);
+  for (let pass = 0; pass < 3; pass++) {
+    boxBlur(image.data, scratch, w, h, radius, 4, w * 4);
+    boxBlur(scratch, image.data, h, w, radius, w * 4, 4);
+  }
+  // putImageData ignores the clip, so the item's clip is respected by drawing through a canvas
+  const tmp = document.createElement("canvas");
+  tmp.width = w;
+  tmp.height = h;
+  tmp.getContext("2d")?.putImageData(image, 0, 0);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.beginPath();
-  ctx.rect(x, y, w, h);
-  ctx.clip();
-  ctx.filter = `blur(${radius}px)`;
-  ctx.drawImage(ctx.canvas, x, y, w, h, x, y, w, h);
+  ctx.drawImage(tmp, x, y);
   ctx.restore();
+}
+
+/**
+ * One running sum box blur along a line. step walks along the line, stride jumps
+ * between lines, so swapping them blurs the other axis. Edges clamp.
+ */
+function boxBlur(
+  src: Uint8ClampedArray,
+  dst: Uint8ClampedArray,
+  length: number,
+  lines: number,
+  r: number,
+  step: number,
+  stride: number,
+) {
+  const span = r * 2 + 1;
+  const last = (length - 1) * step;
+  for (let line = 0; line < lines; line++) {
+    const base = line * stride;
+    for (let c = 0; c < 4; c++) {
+      const at = (i: number) => src[base + Math.min(last, Math.max(0, i * step)) + c];
+      let sum = 0;
+      for (let i = -r; i <= r; i++) sum += at(i);
+      for (let i = 0; i < length; i++) {
+        dst[base + i * step + c] = sum / span;
+        sum += at(i + r + 1) - at(i - r);
+      }
+    }
+  }
 }
 
 const PANORAMA = "textures/ui/panorama_0";
