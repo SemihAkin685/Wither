@@ -2,13 +2,14 @@ use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize, Serializer};
-use tauri::ipc::{Channel, InvokeResponseBody};
-use tauri::State;
+use tauri::ipc::{Channel, InvokeResponseBody, Response};
+use tauri::{AppHandle, State};
+use tauri_plugin_dialog::DialogExt;
 use wither_core::{AppInfo, Settings, SettingsPatch};
 use wither_diagnostics::Problem;
 use wither_git::{GitError, RepoStatus};
 use wither_terminal::{SpawnOptions, TerminalError, TerminalSize};
-use wither_workspace::{sample, RecentProject, SearchMatch, Workspace, WorkspaceError};
+use wither_workspace::{RecentProject, SearchMatch, Workspace, WorkspaceError};
 
 use crate::state::AppState;
 
@@ -19,6 +20,10 @@ const MAX_QUERY_LEN: usize = 256;
 pub enum CommandError {
     #[error("no workspace is open")]
     NoWorkspace,
+    #[error("the picked location is not a local folder")]
+    NotAFolder,
+    #[error("that folder is not in the recent list")]
+    NotRecent,
     #[error("search query is too long")]
     QueryTooLong,
     #[error(transparent)]
@@ -69,16 +74,62 @@ pub fn update_settings(
     Ok(settings.clone())
 }
 
+/// Recent folders that still exist, newest first.
 #[tauri::command]
-pub fn recent_projects() -> Vec<RecentProject> {
-    wither_workspace::recent::sample_recent_projects()
+pub fn recent_projects(state: State<'_, AppState>) -> CommandResult<Vec<RecentProject>> {
+    Ok(lock(&state.recent)?
+        .iter()
+        .filter(|p| std::path::Path::new(&p.path).is_dir())
+        .cloned()
+        .collect())
 }
 
+/// Asks for a folder and opens it. None means the picker was cancelled, the current
+/// workspace stays as it is then.
 #[tauri::command]
-pub fn open_workspace(state: State<'_, AppState>) -> CommandResult<Workspace> {
-    let workspace = sample::bedrock_workspace();
+pub async fn open_workspace(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> CommandResult<Option<Workspace>> {
+    // async command, so we're off the main thread and the blocking picker is fine here
+    let Some(picked) = app.dialog().file().blocking_pick_folder() else {
+        return Ok(None);
+    };
+    let dir = picked.into_path().map_err(|_| CommandError::NotAFolder)?;
+    open_dir(&state, &dir).map(Some)
+}
+
+/// Opens a folder from the recent list without asking. Only paths already in the list are
+/// accepted, so this can't be used to load an arbitrary folder.
+#[tauri::command]
+pub async fn open_recent(state: State<'_, AppState>, path: String) -> CommandResult<Workspace> {
+    if !lock(&state.recent)?.contains(&path) {
+        return Err(CommandError::NotRecent);
+    }
+    open_dir(&state, std::path::Path::new(&path))
+}
+
+fn open_dir(state: &AppState, dir: &std::path::Path) -> CommandResult<Workspace> {
+    let workspace = Workspace::open(dir)?;
     *lock(&state.workspace)? = Some(workspace.clone());
+    remember(state, &workspace);
     Ok(workspace)
+}
+
+// the workspace is already open at this point, a recent list that can't be saved is only logged
+fn remember(state: &AppState, workspace: &Workspace) {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    let Ok(mut recent) = lock(&state.recent) else {
+        return;
+    };
+    recent.touch(&workspace.name, &workspace.root, now);
+    if let Some(path) = &state.recent_path {
+        if let Err(error) = recent.save(path) {
+            eprintln!("could not save {}: {error}", path.display());
+        }
+    }
 }
 
 #[tauri::command]
@@ -92,6 +143,15 @@ pub fn read_file(state: State<'_, AppState>, path: String) -> CommandResult<Stri
     let guard = lock(&state.workspace)?;
     let workspace = guard.as_ref().ok_or(CommandError::NoWorkspace)?;
     Ok(workspace.read(&path)?.to_owned())
+}
+
+/// Image bytes for the JSON UI preview. Goes back as a raw buffer, a JSON number array
+/// would be several times bigger.
+#[tauri::command]
+pub fn read_image(state: State<'_, AppState>, path: String) -> CommandResult<Response> {
+    let guard = lock(&state.workspace)?;
+    let workspace = guard.as_ref().ok_or(CommandError::NoWorkspace)?;
+    Ok(Response::new(workspace.read_image(&path)?))
 }
 
 #[tauri::command]

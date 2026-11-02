@@ -127,16 +127,21 @@ export function ninesliceOf(value: unknown): [number, number, number, number] | 
   return null;
 }
 
-async function loadTexture(path: string): Promise<Texture | null> {
+/** Reads one file of a resource pack, null when the pack doesn't have it. */
+export type PackReader = (path: string, as: "text" | "blob") => Promise<string | Blob | null>;
+
+const readVanilla: PackReader = (path, as) => fetchVanilla(path, as);
+
+/** Loads a texture and its json sidecar the way the game looks them up, png first, then jpg. */
+export async function loadTexture(path: string, read: PackReader): Promise<Texture | null> {
   const clean = path.replace(/\.(png|jpg|jpeg|tga)$/i, "");
-  const blob =
-    (await fetchVanilla<Blob>(`${clean}.png`, "blob")) ?? (await fetchVanilla<Blob>(`${clean}.jpg`, "blob"));
-  if (!blob) return null;
+  const blob = (await read(`${clean}.png`, "blob")) ?? (await read(`${clean}.jpg`, "blob"));
+  if (!(blob instanceof Blob)) return null;
   const image = await createImageBitmap(blob);
-  const sidecarText = await fetchVanilla<string>(`${clean}.json`, "text").catch(() => null);
+  const sidecarText = await read(`${clean}.json`, "text").catch(() => null);
   let sidecar = null;
   try {
-    sidecar = sidecarText ? parseUiJson(sidecarText) : null;
+    sidecar = typeof sidecarText === "string" ? parseUiJson(sidecarText) : null;
   } catch {
     sidecar = null;
   }
@@ -151,9 +156,11 @@ async function loadTexture(path: string): Promise<Texture | null> {
 
 /**
  * Textures by path. get() answers synchronously so painting never waits:
- * undefined while loading, null when vanilla has no such texture.
+ * undefined while loading, null when the pack has no such texture.
  */
 export class TextureStore {
+  constructor(private readonly read: PackReader) {}
+
   private readonly entries = new Map<string, Texture | null>();
   private readonly pending = new Set<string>();
   private readonly listeners = new Set<() => void>();
@@ -162,7 +169,7 @@ export class TextureStore {
     if (this.entries.has(path)) return this.entries.get(path);
     if (!this.pending.has(path)) {
       this.pending.add(path);
-      loadTexture(path)
+      loadTexture(path, this.read)
         .catch(() => null)
         .then((texture) => {
           this.pending.delete(path);
@@ -179,4 +186,18 @@ export class TextureStore {
   }
 }
 
-export const vanillaTextures = new TextureStore();
+export const vanillaTextures = new TextureStore(readVanilla);
+
+/**
+ * The pack's own textures win, like in game, anything it lacks falls through to vanilla.
+ * Still loading in the pack means still loading overall, so vanilla never flashes first.
+ */
+export function layeredTextures(pack: TextureStore, vanilla: TextureStore | null) {
+  return {
+    get(path: string): Texture | null | undefined {
+      const own = pack.get(path);
+      if (own !== null) return own;
+      return vanilla ? vanilla.get(path) : null;
+    },
+  };
+}

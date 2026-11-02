@@ -44,7 +44,8 @@ export interface Workspace {
 export interface RecentProject {
   name: string;
   path: string;
-  lastOpened: string;
+  /** Unix seconds. */
+  lastOpened: number;
 }
 
 export interface SearchMatch {

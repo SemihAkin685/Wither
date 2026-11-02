@@ -6,7 +6,13 @@ import { hitTest, layoutScene, pickAt, scrollViewAt, type Interaction, type Plac
 import { paintBackdrop, paintScene } from "../lib/jsonui/paint";
 import { resolveControl } from "../lib/jsonui/resolve";
 import { loadFont } from "../lib/jsonui/text";
-import { loadVanillaCatalog, VANILLA_VERSION, vanillaTextures } from "../lib/jsonui/vanilla";
+import {
+  layeredTextures,
+  loadVanillaCatalog,
+  TextureStore,
+  VANILLA_VERSION,
+  vanillaTextures,
+} from "../lib/jsonui/vanilla";
 import { flattenFiles } from "../lib/tree";
 import type { FileNode } from "../lib/types";
 import { IconButton } from "./ui";
@@ -71,8 +77,19 @@ export function JsonUiPreview({ path, content, tree, openBuffers }: JsonUiPrevie
     const ui = files.filter((p) => p.startsWith(`${root}ui/`) && p.endsWith(".json"));
     const langs = files.filter((p) => p.startsWith(`${root}texts/`) && p.endsWith(".lang"));
     const lang = langs.find((p) => p.endsWith("/en_US.lang")) ?? langs[0] ?? null;
-    return { ui, lang };
+    return { ui, lang, all: new Set(files) };
   }, [tree, root]);
+
+  // only ask the backend for files the tree knows about, the game probes a lot of misses
+  const packTextures = useMemo(
+    () =>
+      new TextureStore(async (p, as) => {
+        const full = root + p;
+        if (!packFiles.all.has(full)) return null;
+        return as === "text" ? api.readFile(full) : new Blob([await api.readImage(full)]);
+      }),
+    [root, packFiles],
+  );
 
   const [disk, setDisk] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -102,7 +119,10 @@ export function JsonUiPreview({ path, content, tree, openBuffers }: JsonUiPrevie
     if (readConsent()) startVanilla();
   }, []);
   const vanillaCatalog = vanilla.status === "ready" ? vanilla.catalog : null;
-  const textures = vanillaCatalog ? vanillaTextures : null;
+  const textures = useMemo(
+    () => layeredTextures(packTextures, vanillaCatalog ? vanillaTextures : null),
+    [packTextures, vanillaCatalog],
+  );
 
   // textures and the font arrive after the first paint, both change sizes, so they bump a version
   const [assetVersion, setAssetVersion] = useState(0);
@@ -116,12 +136,12 @@ export function JsonUiPreview({ path, content, tree, openBuffers }: JsonUiPrevie
       });
     };
     void loadFont().then(bump);
-    const unsubscribe = vanillaTextures.subscribe(bump);
+    const unsubscribe = [vanillaTextures.subscribe(bump), packTextures.subscribe(bump)];
     return () => {
-      unsubscribe();
+      unsubscribe.forEach((u) => u());
       cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [packTextures]);
 
   const textOf = (p: string) => (p === path ? content : (openBuffers[p] ?? disk[p]));
   const sources = packFiles.ui.map((p) => ({ path: p, text: textOf(p) ?? "" }));

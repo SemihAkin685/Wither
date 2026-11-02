@@ -111,6 +111,7 @@ export function EditorArea(props: EditorAreaProps) {
           theme={settings.theme}
           workspaceName={state.workspace?.name ?? null}
           onOpenWorkspace={actions.openWorkspace}
+          onOpenRecent={actions.openRecent}
           onOpenPalette={onOpenPalette}
           onOpenSettings={onOpenSettings}
           onToggleTheme={() => onSettingsChange({ theme: settings.theme === "dark" ? "light" : "dark" })}

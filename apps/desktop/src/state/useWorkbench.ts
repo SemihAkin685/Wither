@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 import { fileName } from "../lib/tree";
+import type { Workspace } from "../lib/types";
 import {
   activeTab,
   initialState,
@@ -15,6 +16,7 @@ export interface WorkbenchActions {
   dispatch: (action: Action) => void;
   log: (message: string, level?: OutputLine["level"]) => void;
   openWorkspace: () => Promise<void>;
+  openRecent: (path: string) => Promise<void>;
   closeWorkspace: () => Promise<void>;
   openFile: (path: string, line?: number, column?: number) => void;
   save: (path?: string) => Promise<boolean>;
@@ -66,15 +68,21 @@ export function useWorkbench() {
     return () => clearTimeout(timer);
   }, [state.workspace, state.buffers, log]);
 
-  const openWorkspace = useCallback(async () => {
-    try {
-      const workspace = await api.openWorkspace();
-      dispatch({ type: "workspaceOpened", workspace });
-      log(`Opened workspace "${workspace.name}" at ${workspace.root}`);
-    } catch (error) {
-      log(`Could not open workspace: ${errorMessage(error)}`, "error");
-    }
-  }, [log]);
+  const openWith = useCallback(
+    async (open: () => Promise<Workspace | null>) => {
+      try {
+        const workspace = await open();
+        if (!workspace) return;
+        dispatch({ type: "workspaceOpened", workspace });
+        log(`Opened workspace "${workspace.name}" at ${workspace.root}`);
+      } catch (error) {
+        log(`Could not open workspace: ${errorMessage(error)}`, "error");
+      }
+    },
+    [log],
+  );
+  const openWorkspace = useCallback(() => openWith(api.openWorkspace), [openWith]);
+  const openRecent = useCallback((path: string) => openWith(() => api.openRecent(path)), [openWith]);
 
   const closeWorkspace = useCallback(async () => {
     const name = stateRef.current.workspace?.name;
@@ -162,6 +170,7 @@ export function useWorkbench() {
       dispatch,
       log,
       openWorkspace,
+      openRecent,
       closeWorkspace,
       openFile,
       save,
@@ -169,7 +178,7 @@ export function useWorkbench() {
       requestCloseTab,
       confirmClose,
     }),
-    [log, openWorkspace, closeWorkspace, openFile, save, saveAll, requestCloseTab, confirmClose],
+    [log, openWorkspace, openRecent, closeWorkspace, openFile, save, saveAll, requestCloseTab, confirmClose],
   );
 
   const pendingCloseTitle = pendingClose

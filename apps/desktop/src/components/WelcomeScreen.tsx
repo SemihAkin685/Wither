@@ -10,6 +10,7 @@ interface WelcomeScreenProps {
   theme: Theme;
   workspaceName: string | null;
   onOpenWorkspace: () => void;
+  onOpenRecent: (path: string) => void;
   onOpenPalette: () => void;
   onOpenSettings: () => void;
   onToggleTheme: () => void;
@@ -31,9 +32,34 @@ const shortcuts: [string, string][] = [
   ["Close tab", "Ctrl+W"],
 ];
 
+const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["year", 31_536_000],
+  ["month", 2_592_000],
+  ["day", 86_400],
+  ["hour", 3_600],
+  ["minute", 60],
+];
+const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+function timeAgo(seconds: number): string {
+  const elapsed = Math.max(0, Date.now() / 1000 - seconds);
+  for (const [unit, size] of UNITS) {
+    if (elapsed >= size) return relative.format(-Math.floor(elapsed / size), unit);
+  }
+  return "just now";
+}
+
 export function WelcomeScreen(props: WelcomeScreenProps) {
-  const { appInfo, theme, workspaceName, onOpenWorkspace, onOpenPalette, onOpenSettings, onToggleTheme } =
-    props;
+  const {
+    appInfo,
+    theme,
+    workspaceName,
+    onOpenWorkspace,
+    onOpenRecent,
+    onOpenPalette,
+    onOpenSettings,
+    onToggleTheme,
+  } = props;
   const [recent, setRecent] = useState<RecentProject[]>([]);
 
   useEffect(() => {
@@ -91,12 +117,12 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
                   <button
                     type="button"
                     className="welcome-item is-recent"
-                    onClick={onOpenWorkspace}
+                    onClick={() => onOpenRecent(project.path)}
                     title={project.path}
                   >
                     <span className="recent-name">{project.name}</span>
                     <span className="recent-path">{project.path}</span>
-                    <span className="recent-time">{project.lastOpened}</span>
+                    <span className="recent-time">{timeAgo(project.lastOpened)}</span>
                   </button>
                 </li>
               ))}

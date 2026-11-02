@@ -11,13 +11,9 @@ pub fn run() {
     desktop_entry::ensure();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let settings_path = app
-                .path()
-                .app_config_dir()
-                .ok()
-                .map(|dir| dir.join("settings.json"));
-            app.manage(AppState::load(settings_path));
+            app.manage(AppState::load(app.path().app_config_dir().ok()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -26,8 +22,10 @@ pub fn run() {
             commands::update_settings,
             commands::recent_projects,
             commands::open_workspace,
+            commands::open_recent,
             commands::close_workspace,
             commands::read_file,
+            commands::read_image,
             commands::write_file,
             commands::search_workspace,
             commands::check_workspace,

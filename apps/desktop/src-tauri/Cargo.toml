@@ -30,3 +30,4 @@ wither-workspace.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tauri.workspace = true
+tauri-plugin-dialog.workspace = true

@@ -24,6 +24,7 @@ thiserror = "2"
 portable-pty = "0.9"
 tauri = { version = "2", features = [] }
 tauri-build = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 # hmm, the addon crates only live on bedrock-rs's old feat/addon history, so pin the exact commit shulker builds against
 # and keep smallvec at 2.0.0-beta.1 in Cargo.lock, newer betas break bedrock_addon_support
 bedrock_addon = { git = "https://github.com/bedrock-crustaceans/bedrock-rs", rev = "400182185cd7d3ac313729afd98ca336f76b1452", default-features = false, features = ["full", "molang", "script-syntax"] }
