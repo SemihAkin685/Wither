@@ -4,11 +4,23 @@ export interface MenuItem {
   id: string;
   title: string;
   keys?: string;
+  /** Tooltip, e.g. the full path behind a recent project. */
+  hint?: string;
   disabled?: boolean;
   run: () => void;
 }
 
-export type MenuEntry = MenuItem | "separator";
+/** Opens to the side on hover, like File > Open Recent. */
+export interface SubMenu {
+  id: string;
+  title: string;
+  disabled?: boolean;
+  entries: MenuEntry[];
+}
+
+export type MenuEntry = MenuItem | SubMenu | "separator";
+
+export const isSubMenu = (entry: MenuItem | SubMenu): entry is SubMenu => "entries" in entry;
 
 export interface Menu {
   id: string;

@@ -11,10 +11,10 @@ import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
 import { api } from "./lib/api";
 import { commandForEvent, isTerminalPassthrough, type Command } from "./lib/commands";
-import { commandEntry, editEntry, type Menu } from "./lib/menus";
+import { commandEntry, editEntry, type Menu, type MenuEntry } from "./lib/menus";
 import { previewKind } from "./lib/preview";
 import { flattenFiles } from "./lib/tree";
-import type { AppInfo, SearchMatch, Theme } from "./lib/types";
+import type { AppInfo, RecentProject, SearchMatch, Theme } from "./lib/types";
 import { useGameTest } from "./state/useGameTest";
 import { useGit } from "./state/useGit";
 import { useSettings } from "./state/useSettings";
@@ -38,6 +38,7 @@ export function App() {
   });
   const { repo, actions: git } = useGit(state.workspace?.root ?? null, log);
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
+  const [recent, setRecent] = useState<RecentProject[]>([]);
   const [searchFocusToken, setSearchFocusToken] = useState(0);
   const [terminalFocusToken, setTerminalFocusToken] = useState(0);
   const centerRef = useRef<HTMLDivElement>(null);
@@ -138,14 +139,29 @@ export function App() {
     ];
   }, [actions, dispatch, state.activeTabId, activeFile, showSearch, showTerminal, toggleTheme, setTheme, zoomEditor, game, openGameTab, testInGame]);
 
+  // opening a project bumps it in the backend's list, so refetch whenever the workspace changes
+  useEffect(() => {
+    api.recentProjects().then(setRecent).catch(() => setRecent([]));
+  }, [state.workspace?.root]);
+
   const menus = useMemo<Menu[]>(() => {
     const entry = (id: string, title?: string) => commandEntry(commands, id, title);
+    const others = recent.filter((project) => project.path !== state.workspace?.root);
+    const openRecent: MenuEntry[] = others.length
+      ? others.map((project) => ({
+          id: `recent.${project.path}`,
+          title: project.name,
+          hint: project.path,
+          run: () => void actions.openRecent(project.path),
+        }))
+      : [{ id: "recent.none", title: "No Recent Projects", disabled: true, run: () => {} }];
     return [
       {
         id: "file",
         title: "File",
         entries: [
           entry("workspace.open", "Open Workspace..."),
+          { id: "workspace.recent", title: "Open Recent", entries: openRecent },
           { ...entry("workspace.close"), disabled: !state.workspace },
           "separator",
           entry("addon.import", "Import Addon or Pack..."),
@@ -228,7 +244,7 @@ export function App() {
       },
       { id: "help", title: "Help", entries: [entry("help.welcome"), entry("palette.commands", "Find Action...")] },
     ];
-  }, [commands, state.workspace, repo, git, game.busy]);
+  }, [commands, state.workspace, repo, git, game.busy, recent, actions]);
 
   const commandsRef = useRef(commands);
   commandsRef.current = commands;

@@ -452,6 +452,17 @@ kbd {
 .menu-dropdown {
   min-width: 240px;
 }
+.menu-sub {
+  position: relative;
+}
+.menu-submenu {
+  top: -5px;
+  left: calc(100% + 4px);
+  max-width: 360px;
+}
+.menu-sub-chevron {
+  margin-left: auto;
+}
 .git-popup {
   width: 300px;
   max-height: min(440px, calc(100vh - 80px));
