@@ -5906,6 +5906,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
+name = "wither-blockbench"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "wither-completion"
 version = "0.1.0"
 dependencies = [
@@ -5931,6 +5938,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "thiserror 2.0.21",
+ "wither-blockbench",
  "wither-completion",
  "wither-core",
  "wither-diagnostics",

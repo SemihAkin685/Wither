@@ -101,6 +101,19 @@ impl Workspace {
         fs::read(&target).map_err(|e| WorkspaceError::io(&target, e))
     }
 
+    /// Model file behind an entity or attachable, see models.rs for how it's found.
+    pub fn model_for(&self, path: &str) -> Option<String> {
+        let text = self.read(path).ok()?;
+        crate::models::model_for(self.text_files(), path, text)
+    }
+
+    /// Where a workspace file lives on disk, None for in-memory workspaces and unknown paths.
+    pub fn disk_path(&self, path: &str) -> Option<PathBuf> {
+        let root = self.disk_root.as_ref()?;
+        // only keys we loaded ourselves get joined, so this can't escape the root
+        self.files.contains_key(path).then(|| root.join(path))
+    }
+
     pub fn write(&mut self, path: &str, contents: String) -> Result<(), WorkspaceError> {
         let slot = self
             .files
@@ -116,7 +129,7 @@ impl Workspace {
     }
 
     /// Every text file with its contents, sorted by path.
-    pub fn text_files(&self) -> impl Iterator<Item = (&str, &str)> {
+    pub fn text_files(&self) -> impl Iterator<Item = (&str, &str)> + Clone {
         self.files
             .iter()
             .filter(|(path, _)| Language::from_path(path).is_text())
@@ -326,7 +339,10 @@ mod tests {
 
         let mut ws = Workspace::open(&dir).unwrap();
         ws.write("README.md", "# changed".into()).unwrap();
-        assert_eq!(fs::read_to_string(dir.join("README.md")).unwrap(), "# changed");
+        assert_eq!(
+            fs::read_to_string(dir.join("README.md")).unwrap(),
+            "# changed"
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use tauri::ipc::{Channel, InvokeResponseBody, Response};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
+use wither_blockbench::BlockbenchError;
 use wither_core::{AppInfo, Settings, SettingsPatch};
 use wither_diagnostics::Problem;
 use wither_git::{GitError, RepoStatus};
@@ -32,6 +33,12 @@ pub enum CommandError {
     Terminal(#[from] TerminalError),
     #[error(transparent)]
     Git(#[from] GitError),
+    #[error(transparent)]
+    Blockbench(#[from] BlockbenchError),
+    #[error("no model file found for {0}")]
+    NoModel(String),
+    #[error("this workspace isn't a folder on disk, open the project folder to use Blockbench")]
+    NotOnDisk,
     #[error("could not save settings: {0}")]
     SaveSettings(std::io::Error),
     #[error("application state is unavailable")]
@@ -205,6 +212,42 @@ pub async fn check_workspace(
 #[tauri::command]
 pub fn completion_catalog() -> wither_completion::Catalog {
     wither_completion::catalog()
+}
+
+/// Workspace path of the model behind an entity, attachable or geometry file, so the editor
+/// only offers Blockbench when there's something to open.
+#[tauri::command]
+pub fn entity_model(state: State<'_, AppState>, path: String) -> CommandResult<Option<String>> {
+    let guard = lock(&state.workspace)?;
+    let workspace = guard.as_ref().ok_or(CommandError::NoWorkspace)?;
+    Ok(workspace.model_for(&path))
+}
+
+// async so the install lookup never touches the main thread, it reads a few directories
+#[tauri::command]
+pub async fn blockbench_installed() -> bool {
+    wither_blockbench::find().is_some()
+}
+
+/// Opens the model behind `path` in Blockbench. Goes through the saved file on disk,
+/// unsaved edits in the editor don't make it over.
+#[tauri::command]
+pub async fn open_in_blockbench(state: State<'_, AppState>, path: String) -> CommandResult<()> {
+    let file = {
+        let guard = lock(&state.workspace)?;
+        let workspace = guard.as_ref().ok_or(CommandError::NoWorkspace)?;
+        let model = workspace
+            .model_for(&path)
+            .ok_or_else(|| CommandError::NoModel(path.clone()))?;
+        workspace.disk_path(&model).ok_or(CommandError::NotOnDisk)?
+    };
+    let install = wither_blockbench::find().ok_or(BlockbenchError::NotInstalled)?;
+    Ok(install.open(&file)?)
+}
+
+#[tauri::command]
+pub fn open_blockbench_download() -> CommandResult<()> {
+    Ok(wither_blockbench::open_download_page()?)
 }
 
 fn workspace_root(state: &AppState) -> CommandResult<std::path::PathBuf> {

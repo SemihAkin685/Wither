@@ -32,6 +32,10 @@ export const api = {
   searchWorkspace: (query: string) => invoke<SearchMatch[]>("search_workspace", { query }),
   checkWorkspace: (unsaved: Record<string, string>) => invoke<Problem[]>("check_workspace", { unsaved }),
   completionCatalog: () => invoke<CompletionCatalog>("completion_catalog"),
+  entityModel: (path: string) => invoke<string | null>("entity_model", { path }),
+  blockbenchInstalled: () => invoke<boolean>("blockbench_installed"),
+  openInBlockbench: (path: string) => invoke<void>("open_in_blockbench", { path }),
+  openBlockbenchDownload: () => invoke<void>("open_blockbench_download"),
   terminalSpawn: (size: TerminalSize, onOutput: Channel<ArrayBuffer>, onExit: Channel<number | null>) =>
     invoke<TerminalSession>("terminal_spawn", { size, onOutput, onExit }),
   terminalWrite: (id: number, data: string) => invoke<void>("terminal_write", { id, data }),

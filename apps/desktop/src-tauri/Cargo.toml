@@ -21,6 +21,7 @@ path = "src/main.rs"
 tauri-build.workspace = true
 
 [dependencies]
+wither-blockbench.workspace = true
 wither-completion.workspace = true
 wither-core.workspace = true
 wither-diagnostics.workspace = true

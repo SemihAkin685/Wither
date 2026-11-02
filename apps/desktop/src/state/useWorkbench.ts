@@ -101,8 +101,9 @@ export function useWorkbench() {
       const alreadyLoaded = !!stateRef.current.buffers[path];
       dispatch({ type: "openFile", path, line, column });
       if (alreadyLoaded) return;
+      // images have no text, the editor area shows them through ImagePreview instead
       if (node?.language === "image") {
-        dispatch({ type: "bufferFailed", path, error: "Image preview is not available yet." });
+        dispatch({ type: "bufferLoaded", path, content: "" });
         return;
       }
       api

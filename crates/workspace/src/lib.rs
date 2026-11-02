@@ -1,3 +1,4 @@
+mod models;
 pub mod recent;
 pub mod sample;
 pub mod search;

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["apps/desktop/src-tauri", "crates/completion", "crates/core", "crates/diagnostics", "crates/git", "crates/terminal", "crates/workspace"]
+members = ["apps/desktop/src-tauri", "crates/blockbench", "crates/completion", "crates/core", "crates/diagnostics", "crates/git", "crates/terminal", "crates/workspace"]
 
 [workspace.package]
 version = "0.1.0"
@@ -12,6 +12,7 @@ homepage = "https://github.com/SemihAkin685/Wither"
 rust-version = "1.98"
 
 [workspace.dependencies]
+wither-blockbench = { path = "crates/blockbench" }
 wither-completion = { path = "crates/completion" }
 wither-core = { path = "crates/core" }
 wither-diagnostics = { path = "crates/diagnostics" }

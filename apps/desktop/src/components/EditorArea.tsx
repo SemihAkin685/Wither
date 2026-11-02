@@ -1,12 +1,14 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronRight, CircleAlert, Columns2, Loader } from "lucide-react";
-import { isUiDefinitionFile } from "../lib/jsonui/catalog";
+import { previewKind } from "../lib/preview";
 import type { AppInfo, Settings, SettingsPatch } from "../lib/types";
 import type { WorkbenchActions } from "../state/useWorkbench";
 import { activeTab, isDirty, type WorkbenchState } from "../state/workbench";
+import { BlockbenchHint, mayHaveModel } from "./BlockbenchHint";
 import { CodeEditor } from "./CodeEditor";
-import { FileIcon } from "./FileIcon";
+import { ImagePreview } from "./ImagePreview";
 import { JsonUiPreview } from "./JsonUiPreview";
+import { MarkdownPreview } from "./MarkdownPreview";
 import { ResizeHandle } from "./ResizeHandle";
 import { Logo } from "./Logo";
 import { SettingsView } from "./SettingsView";
@@ -101,6 +103,8 @@ export function EditorArea(props: EditorAreaProps) {
     () => state.problems.filter((p) => p.path === filePath),
     [state.problems, filePath],
   );
+  // dismissing the Blockbench banner holds for the rest of the session
+  const [blockbenchDismissed, setBlockbenchDismissed] = useState(false);
 
   const body = (() => {
     if (!tab) return <EmptyEditor />;
@@ -124,9 +128,12 @@ export function EditorArea(props: EditorAreaProps) {
 
     const buffer = state.buffers[tab.path];
     const node = state.files[tab.path];
-    const jsonUi = isUiDefinitionFile(tab.path);
+    const preview = previewKind(tab.path);
+    const previewLabel = preview === "markdown" ? "Markdown" : "JSON UI";
     let content;
-    if (!buffer || buffer.status === "loading") {
+    if (node?.language === "image") {
+      content = <ImagePreview key={tab.path} path={tab.path} />;
+    } else if (!buffer || buffer.status === "loading") {
       content = (
         <div className="editor-placeholder">
           <Loader size={16} className="spin" />
@@ -136,7 +143,7 @@ export function EditorArea(props: EditorAreaProps) {
     } else if (buffer.status === "error") {
       content = (
         <div className="editor-placeholder">
-          {node?.language === "image" ? <FileIcon language="image" size={28} /> : <CircleAlert size={20} />}
+          <CircleAlert size={20} />
           <span>{buffer.error}</span>
         </div>
       );
@@ -159,14 +166,23 @@ export function EditorArea(props: EditorAreaProps) {
         />
       );
       content =
-        jsonUi && state.previews[tab.path] ? (
+        preview && state.previews[tab.path] ? (
           <PreviewSplit editor={editor}>
-            <JsonUiPreview
-              path={tab.path}
-              content={buffer.content}
-              tree={state.workspace?.tree ?? []}
-              openBuffers={openBuffers(state.buffers)}
-            />
+            {preview === "jsonui" ? (
+              <JsonUiPreview
+                path={tab.path}
+                content={buffer.content}
+                tree={state.workspace?.tree ?? []}
+                openBuffers={openBuffers(state.buffers)}
+              />
+            ) : (
+              <MarkdownPreview
+                path={tab.path}
+                content={buffer.content}
+                files={state.files}
+                onOpenFile={(path) => actions.openFile(path)}
+              />
+            )}
           </PreviewSplit>
         ) : (
           editor
@@ -176,9 +192,9 @@ export function EditorArea(props: EditorAreaProps) {
       <div className="editor-file">
         <div className="editor-toolbar">
           <Breadcrumbs path={tab.path} workspaceName={state.workspace?.name} />
-          {jsonUi && (
+          {preview && (
             <IconButton
-              label="Toggle JSON UI Preview (Ctrl+Shift+V)"
+              label={`Toggle ${previewLabel} Preview (Ctrl+Shift+V)`}
               active={!!state.previews[tab.path]}
               onClick={() => dispatch({ type: "togglePreview", path: tab.path })}
             >
@@ -186,6 +202,9 @@ export function EditorArea(props: EditorAreaProps) {
             </IconButton>
           )}
         </div>
+        {!blockbenchDismissed && mayHaveModel(tab.path) && (
+          <BlockbenchHint path={tab.path} log={actions.log} onDismiss={() => setBlockbenchDismissed(true)} />
+        )}
         {content}
       </div>
     );
