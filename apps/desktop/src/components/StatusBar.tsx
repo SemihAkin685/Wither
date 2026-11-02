@@ -1,4 +1,4 @@
-import { CircleX, Files, Moon, PanelBottom, Search, SquareTerminal, Sun, TriangleAlert } from "lucide-react";
+import { CircleX, Files, Loader, Moon, PanelBottom, Play, Search, SquareTerminal, Sun, TriangleAlert } from "lucide-react";
 import { languageLabel } from "../lib/tree";
 import type { Theme } from "../lib/types";
 import type { WorkbenchActions } from "../state/useWorkbench";
@@ -12,9 +12,12 @@ interface StatusBarProps {
   onToggleTheme: () => void;
   onShowSearch: () => void;
   onShowTerminal: () => void;
+  testing: boolean;
+  onTestInGame: () => void;
 }
 
-export function StatusBar({ state, actions, theme, onToggleTheme, onShowSearch, onShowTerminal }: StatusBarProps) {
+export function StatusBar(props: StatusBarProps) {
+  const { state, actions, theme, onToggleTheme, onShowSearch, onShowTerminal, testing, onTestInGame } = props;
   const { dispatch } = actions;
   const { sidebar, panel } = state;
   const tab = activeTab(state);
@@ -53,6 +56,21 @@ export function StatusBar({ state, actions, theme, onToggleTheme, onShowSearch, 
           <TriangleAlert size={13} />
           {counts.warnings}
         </button>
+        {state.workspace && (
+          <>
+            <span className="statusbar-divider" />
+            <button
+              type="button"
+              className="statusbar-item"
+              title="Test in Game (Ctrl+F5)"
+              disabled={testing}
+              onClick={onTestInGame}
+            >
+              {testing ? <Loader size={13} className="spin" /> : <Play size={13} />}
+              Test in Game
+            </button>
+          </>
+        )}
       </div>
 
       <div className="statusbar-group">

@@ -17,6 +17,7 @@ export interface WorkbenchActions {
   log: (message: string, level?: OutputLine["level"]) => void;
   openWorkspace: () => Promise<void>;
   openRecent: (path: string) => Promise<void>;
+  importArchive: () => Promise<void>;
   closeWorkspace: () => Promise<void>;
   openFile: (path: string, line?: number, column?: number) => void;
   save: (path?: string) => Promise<boolean>;
@@ -83,6 +84,7 @@ export function useWorkbench() {
   );
   const openWorkspace = useCallback(() => openWith(api.openWorkspace), [openWith]);
   const openRecent = useCallback((path: string) => openWith(() => api.openRecent(path)), [openWith]);
+  const importArchive = useCallback(() => openWith(api.importArchive), [openWith]);
 
   const closeWorkspace = useCallback(async () => {
     const name = stateRef.current.workspace?.name;
@@ -172,6 +174,7 @@ export function useWorkbench() {
       log,
       openWorkspace,
       openRecent,
+      importArchive,
       closeWorkspace,
       openFile,
       save,
@@ -179,7 +182,7 @@ export function useWorkbench() {
       requestCloseTab,
       confirmClose,
     }),
-    [log, openWorkspace, openRecent, closeWorkspace, openFile, save, saveAll, requestCloseTab, confirmClose],
+    [log, openWorkspace, openRecent, importArchive, closeWorkspace, openFile, save, saveAll, requestCloseTab, confirmClose],
   );
 
   const pendingCloseTitle = pendingClose

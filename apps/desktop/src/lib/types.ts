@@ -14,9 +14,20 @@ export interface Settings {
   tabSize: number;
   highlightCurrentLine: boolean;
   suggestions: boolean;
+  /** com.mojang folder to test in, empty means use the detected installs. */
+  minecraftInstall: string;
+  /** Command that starts the game, empty means pick one for this OS. */
+  launchCommand: string;
+  /** Set by the backend after each test run, not part of a patch. */
+  lastTestTarget: TestTarget | null;
 }
 
-export type SettingsPatch = Partial<Settings>;
+export interface TestTarget {
+  install: string;
+  world: string | null;
+}
+
+export type SettingsPatch = Partial<Omit<Settings, "lastTestTarget">>;
 
 export type Language =
   | "json"
@@ -165,4 +176,45 @@ export interface ScriptMember {
   many?: boolean;
   /** Declared types a callback argument of the method is called with. */
   callback?: (string | null)[];
+}
+
+export type PackKind = "behavior" | "resource" | "skin" | "unknown";
+
+export interface PackManifest {
+  name: string;
+  uuid: string;
+  version: [number, number, number];
+  kind: PackKind;
+}
+
+/** A folder with a manifest.json in the open project. */
+export interface PackInfo {
+  /** Relative to the project root, "" for a pack at the root. */
+  rel: string;
+  folder: string;
+  manifest: PackManifest;
+}
+
+/** A Minecraft data folder (com.mojang). */
+export interface MinecraftInstall {
+  id: string;
+  label: string;
+  packsRoot: string;
+  worldsRoot: string;
+}
+
+export interface World {
+  id: string;
+  name: string;
+  /** Unix seconds. */
+  lastPlayed: number;
+  hasIcon: boolean;
+}
+
+export interface TestReport {
+  installed: string[];
+  skipped: string[];
+  warnings: string[];
+  attachedTo: string | null;
+  launched: boolean;
 }

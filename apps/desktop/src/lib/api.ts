@@ -3,6 +3,8 @@ import type {
   AppInfo,
   CompletionCatalog,
   GitRepo,
+  MinecraftInstall,
+  PackInfo,
   Problem,
   TerminalSession,
   TerminalSize,
@@ -10,7 +12,9 @@ import type {
   SearchMatch,
   Settings,
   SettingsPatch,
+  TestReport,
   Workspace,
+  World,
 } from "./types";
 
 export const api = {
@@ -41,6 +45,14 @@ export const api = {
   terminalWrite: (id: number, data: string) => invoke<void>("terminal_write", { id, data }),
   terminalResize: (id: number, size: TerminalSize) => invoke<void>("terminal_resize", { id, size }),
   terminalKill: (id: number) => invoke<void>("terminal_kill", { id }),
+  listPacks: () => invoke<PackInfo[]>("list_packs"),
+  exportAddon: (pack: string | null) => invoke<string | null>("export_addon", { pack }),
+  importArchive: () => invoke<Workspace | null>("import_archive"),
+  minecraftInstalls: () => invoke<MinecraftInstall[]>("minecraft_installs"),
+  listWorlds: (install: string) => invoke<World[]>("list_worlds", { install }),
+  worldIcon: (install: string, world: string) => invoke<ArrayBuffer>("world_icon", { install, world }),
+  gameRunning: () => invoke<boolean | null>("game_running"),
+  testInGame: (install: string, world: string | null) => invoke<TestReport>("test_in_game", { install, world }),
 };
 
 export function errorMessage(error: unknown): string {

@@ -2,10 +2,12 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronRight, CircleAlert, Columns2, Loader } from "lucide-react";
 import { previewKind } from "../lib/preview";
 import type { AppInfo, Settings, SettingsPatch } from "../lib/types";
+import type { GameTest } from "../state/useGameTest";
 import type { WorkbenchActions } from "../state/useWorkbench";
 import { activeTab, isDirty, type WorkbenchState } from "../state/workbench";
 import { BlockbenchHint, mayHaveModel } from "./BlockbenchHint";
 import { CodeEditor } from "./CodeEditor";
+import { GameTestView } from "./GameTestView";
 import { ImagePreview } from "./ImagePreview";
 import { JsonUiPreview } from "./JsonUiPreview";
 import { MarkdownPreview } from "./MarkdownPreview";
@@ -24,6 +26,7 @@ interface EditorAreaProps {
   onSettingsChange: (patch: SettingsPatch) => void;
   onOpenPalette: () => void;
   onOpenSettings: () => void;
+  game: GameTest;
 }
 
 function Breadcrumbs({ path, workspaceName }: { path: string; workspaceName?: string }) {
@@ -95,7 +98,7 @@ function openBuffers(buffers: WorkbenchState["buffers"]): Record<string, string>
 }
 
 export function EditorArea(props: EditorAreaProps) {
-  const { state, actions, settings, appInfo, onSettingsChange, onOpenPalette, onOpenSettings } = props;
+  const { state, actions, settings, appInfo, onSettingsChange, onOpenPalette, onOpenSettings, game } = props;
   const { dispatch } = actions;
   const tab = activeTab(state);
   const filePath = tab?.kind === "file" ? tab.path : null;
@@ -124,6 +127,16 @@ export function EditorArea(props: EditorAreaProps) {
     }
     if (tab.kind === "settings") {
       return <SettingsView settings={settings} appInfo={appInfo} onChange={onSettingsChange} />;
+    }
+    if (tab.kind === "game") {
+      return (
+        <GameTestView
+          hasWorkspace={!!state.workspace}
+          lastTarget={settings.lastTestTarget}
+          game={game}
+          onOpenSettings={onOpenSettings}
+        />
+      );
     }
 
     const buffer = state.buffers[tab.path];

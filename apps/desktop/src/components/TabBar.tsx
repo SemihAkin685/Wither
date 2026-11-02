@@ -1,5 +1,5 @@
 import { useRef, useState, type DragEvent, type MouseEvent } from "react";
-import { House, Settings, X } from "lucide-react";
+import { Gamepad2, House, Settings, X } from "lucide-react";
 import type { FileNode } from "../lib/types";
 import type { Tab } from "../state/workbench";
 import { FileIcon } from "./FileIcon";
@@ -17,6 +17,7 @@ interface TabBarProps {
 function TabIcon({ tab, files }: { tab: Tab; files: Record<string, FileNode> }) {
   if (tab.kind === "welcome") return <House size={14} className="file-icon tone-accent" strokeWidth={1.75} />;
   if (tab.kind === "settings") return <Settings size={14} className="file-icon" strokeWidth={1.75} />;
+  if (tab.kind === "game") return <Gamepad2 size={14} className="file-icon" strokeWidth={1.75} />;
   return <FileIcon language={files[tab.path]?.language} size={14} />;
 }
 

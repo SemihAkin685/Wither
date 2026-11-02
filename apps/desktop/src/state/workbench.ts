@@ -8,6 +8,7 @@ export type PaletteMode = "commands" | "files";
 export type Tab =
   | { id: "welcome"; kind: "welcome"; title: string }
   | { id: "settings"; kind: "settings"; title: string }
+  | { id: "game"; kind: "game"; title: string }
   | { id: string; kind: "file"; title: string; path: string };
 
 export interface Buffer {
@@ -50,6 +51,7 @@ const MAX_OUTPUT_LINES = 500;
 
 export const welcomeTab: Tab = { id: "welcome", kind: "welcome", title: "Welcome" };
 export const settingsTab: Tab = { id: "settings", kind: "settings", title: "Settings" };
+export const gameTab: Tab = { id: "game", kind: "game", title: "Test in Game" };
 
 export const fileTabId = (path: string) => `file:${path}`;
 

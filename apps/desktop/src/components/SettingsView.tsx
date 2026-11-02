@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import banner from "@assets/banner.png";
 import type { AppInfo, Settings, SettingsPatch, Theme } from "../lib/types";
@@ -67,7 +67,30 @@ const themes: { value: Theme; label: string }[] = [
 ];
 
 function isDefault(settings: Settings) {
-  return (Object.keys(defaultSettings) as (keyof Settings)[]).every((key) => settings[key] === defaultSettings[key]);
+  return (Object.keys(defaultSettings) as (keyof typeof defaultSettings)[]).every(
+    (key) => settings[key] === defaultSettings[key],
+  );
+}
+
+/** Text field that saves on blur or Enter, not on every key. */
+function TextSetting({ value, label, placeholder, onChange }: { value: string; label: string; placeholder: string; onChange: (v: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const commit = () => {
+    if (draft.trim() !== value) onChange(draft.trim());
+  };
+  return (
+    <input
+      className="text-input settings-text"
+      aria-label={label}
+      placeholder={placeholder}
+      spellCheck={false}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && commit()}
+    />
+  );
 }
 
 export function SettingsView({ settings, appInfo, onChange }: SettingsViewProps) {
@@ -146,6 +169,32 @@ export function SettingsView({ settings, appInfo, onChange }: SettingsViewProps)
             description="Open completions as you type in pack JSON and scripts. Ctrl+Space works either way."
           >
             <Toggle on={settings.suggestions} label="Suggestions while typing" onChange={(on) => onChange({ suggestions: on })} />
+          </Row>
+        </section>
+
+        <section>
+          <h2>Minecraft</h2>
+          <Row
+            title="Minecraft folder"
+            description="A com.mojang folder to test in. Leave empty to use the installs Wither finds on its own."
+          >
+            <TextSetting
+              value={settings.minecraftInstall}
+              label="Minecraft folder"
+              placeholder="Detect automatically"
+              onChange={(v) => onChange({ minecraftInstall: v })}
+            />
+          </Row>
+          <Row
+            title="Launch command"
+            description="Runs after packs are installed. Leave empty for mcpelauncher on Linux or the minecraft: link on Windows."
+          >
+            <TextSetting
+              value={settings.launchCommand}
+              label="Launch command"
+              placeholder="Detect automatically"
+              onChange={(v) => onChange({ launchCommand: v })}
+            />
           </Row>
         </section>
 

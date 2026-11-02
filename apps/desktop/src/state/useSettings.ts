@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../lib/api";
 import type { Settings, SettingsPatch } from "../lib/types";
 
-export const defaultSettings: Settings = {
+// lastTestTarget isn't a user setting, so it's left out here and Restore defaults keeps it
+export const defaultSettings: Required<SettingsPatch> = {
   theme: "dark",
   uiFontSize: 13,
   editorFontSize: 14,
@@ -10,6 +11,8 @@ export const defaultSettings: Settings = {
   tabSize: 2,
   highlightCurrentLine: true,
   suggestions: true,
+  minecraftInstall: "",
+  launchCommand: "",
 };
 
 // mirrors of the clamps in crates/core/src/settings.rs
@@ -25,14 +28,17 @@ function applyToDocument(settings: Settings) {
 }
 
 export function useSettings(onError: (message: string) => void) {
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [settings, setSettings] = useState<Settings>({ ...defaultSettings, lastTestTarget: null });
 
-  useEffect(() => {
+  // the backend changes settings on its own too (the last test target), this pulls them again
+  const reload = useCallback(() => {
     api
       .getSettings()
       .then(setSettings)
       .catch((error) => onError(`Could not load settings: ${errorMessage(error)}`));
   }, [onError]);
+
+  useEffect(reload, [reload]);
 
   useEffect(() => applyToDocument(settings), [settings]);
 
@@ -47,5 +53,5 @@ export function useSettings(onError: (message: string) => void) {
     [onError],
   );
 
-  return { settings, update };
+  return { settings, update, reload };
 }

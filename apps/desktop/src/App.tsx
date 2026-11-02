@@ -4,6 +4,7 @@ import { BottomPanel } from "./components/BottomPanel";
 import { CommandPalette } from "./components/CommandPalette";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { EditorArea } from "./components/EditorArea";
+import { GameRunningDialog } from "./components/GameTestView";
 import { ResizeHandle } from "./components/ResizeHandle";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
@@ -14,10 +15,11 @@ import { commandEntry, editEntry, type Menu } from "./lib/menus";
 import { previewKind } from "./lib/preview";
 import { flattenFiles } from "./lib/tree";
 import type { AppInfo, SearchMatch, Theme } from "./lib/types";
+import { useGameTest } from "./state/useGameTest";
 import { useGit } from "./state/useGit";
 import { useSettings } from "./state/useSettings";
 import { useWorkbench } from "./state/useWorkbench";
-import { activeTab, PANEL_HEIGHT, settingsTab, welcomeTab } from "./state/workbench";
+import { activeTab, gameTab, PANEL_HEIGHT, settingsTab, welcomeTab } from "./state/workbench";
 
 const MIN_EDITOR_HEIGHT = 140;
 
@@ -25,7 +27,15 @@ export function App() {
   const { state, actions, pendingCloseTitle } = useWorkbench();
   const { dispatch, log } = actions;
   const onSettingsError = useCallback((message: string) => log(message, "error"), [log]);
-  const { settings, update: updateSettings } = useSettings(onSettingsError);
+  const { settings, update: updateSettings, reload: reloadSettings } = useSettings(onSettingsError);
+  const showOutput = useCallback(() => dispatch({ type: "showPanelView", view: "output" }), [dispatch]);
+  const game = useGameTest({
+    lastTarget: settings.lastTestTarget,
+    saveAll: actions.saveAll,
+    log,
+    showOutput,
+    onSettingsChanged: reloadSettings,
+  });
   const { repo, actions: git } = useGit(state.workspace?.root ?? null, log);
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [searchFocusToken, setSearchFocusToken] = useState(0);
@@ -84,6 +94,11 @@ export function App() {
   );
 
   const activeFile = tab?.kind === "file" ? tab.path : null;
+  const openGameTab = useCallback(() => dispatch({ type: "openTab", tab: gameTab }), [dispatch]);
+  // first run has no target yet, so it opens the view to pick one
+  const testInGame = useCallback(() => {
+    if (!game.runLast()) openGameTab();
+  }, [game, openGameTab]);
   const commands = useMemo<Command[]>(() => {
     const activeId = state.activeTabId;
     return [
@@ -91,6 +106,11 @@ export function App() {
       { id: "palette.files", category: "File", title: "Go to File", keys: "Ctrl+P", run: () => dispatch({ type: "openPalette", mode: "files" }) },
       { id: "workspace.open", category: "Workspace", title: "Open Workspace", keys: "Ctrl+O", run: actions.openWorkspace },
       { id: "workspace.close", category: "Workspace", title: "Close Workspace", run: actions.closeWorkspace },
+      { id: "addon.import", category: "Addon", title: "Import Addon or Pack", run: () => void actions.importArchive() },
+      { id: "addon.export", category: "Addon", title: "Export as .mcaddon", run: () => void game.exportAddon() },
+      { id: "addon.exportPack", category: "Addon", title: "Export Pack as .mcpack", run: openGameTab },
+      { id: "game.open", category: "Addon", title: "Choose Where to Test", run: openGameTab },
+      { id: "game.run", category: "Addon", title: "Test in Game", keys: "Ctrl+F5", run: testInGame },
       { id: "file.save", category: "File", title: "Save", keys: "Ctrl+S", run: () => void actions.save() },
       { id: "file.saveAll", category: "File", title: "Save All", keys: "Ctrl+Alt+S", run: () => void actions.saveAll() },
       { id: "editor.close", category: "Editor", title: "Close Tab", keys: "Ctrl+W", run: () => activeId && actions.requestCloseTab(activeId) },
@@ -116,7 +136,7 @@ export function App() {
       { id: "help.welcome", category: "Help", title: "Welcome", run: () => dispatch({ type: "openTab", tab: welcomeTab }) },
       { id: "window.close", category: "Window", title: "Quit Wither", keys: "Ctrl+Q", run: () => void getCurrentWindow().close() },
     ];
-  }, [actions, dispatch, state.activeTabId, activeFile, showSearch, showTerminal, toggleTheme, setTheme, zoomEditor]);
+  }, [actions, dispatch, state.activeTabId, activeFile, showSearch, showTerminal, toggleTheme, setTheme, zoomEditor, game, openGameTab, testInGame]);
 
   const menus = useMemo<Menu[]>(() => {
     const entry = (id: string, title?: string) => commandEntry(commands, id, title);
@@ -127,6 +147,10 @@ export function App() {
         entries: [
           entry("workspace.open", "Open Workspace..."),
           { ...entry("workspace.close"), disabled: !state.workspace },
+          "separator",
+          entry("addon.import", "Import Addon or Pack..."),
+          { ...entry("addon.export", "Export as .mcaddon..."), disabled: !state.workspace },
+          { ...entry("addon.exportPack", "Export Pack as .mcpack..."), disabled: !state.workspace },
           "separator",
           entry("palette.files", "Go to File..."),
           "separator",
@@ -181,6 +205,14 @@ export function App() {
         entries: [entry("palette.files", "Go to File..."), "separator", entry("editor.next"), entry("editor.prev")],
       },
       {
+        id: "run",
+        title: "Run",
+        entries: [
+          { ...entry("game.run"), disabled: !state.workspace || game.busy },
+          entry("game.open", "Choose Where to Test..."),
+        ],
+      },
+      {
         id: "git",
         title: "Git",
         entries: state.workspace
@@ -196,11 +228,11 @@ export function App() {
       },
       { id: "help", title: "Help", entries: [entry("help.welcome"), entry("palette.commands", "Find Action...")] },
     ];
-  }, [commands, state.workspace, repo, git]);
+  }, [commands, state.workspace, repo, git, game.busy]);
 
   const commandsRef = useRef(commands);
   commandsRef.current = commands;
-  const blocked = state.palette !== null || pendingCloseTitle !== null;
+  const blocked = state.palette !== null || pendingCloseTitle !== null || game.pending !== null;
 
   useEffect(() => {
     if (blocked) return;
@@ -260,6 +292,7 @@ export function App() {
             onSettingsChange={updateSettings}
             onOpenPalette={() => dispatch({ type: "openPalette", mode: "commands" })}
             onOpenSettings={() => dispatch({ type: "openTab", tab: settingsTab })}
+            game={game}
           />
           {state.panel.visible && (
             <ResizeHandle axis="y" invert getSize={() => state.panel.height} onResize={resizePanel} />
@@ -280,6 +313,8 @@ export function App() {
         onToggleTheme={toggleTheme}
         onShowSearch={showSearch}
         onShowTerminal={showTerminal}
+        testing={game.busy}
+        onTestInGame={testInGame}
       />
 
       {state.palette && (
@@ -292,6 +327,7 @@ export function App() {
         />
       )}
       {pendingCloseTitle !== null && <ConfirmDialog fileName={pendingCloseTitle} onChoose={actions.confirmClose} />}
+      {game.pending && <GameRunningDialog onChoose={game.confirm} />}
     </div>
   );
 }
